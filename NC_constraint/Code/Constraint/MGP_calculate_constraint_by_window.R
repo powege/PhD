@@ -31,13 +31,15 @@ fwrite(output, output_file_path)
 
 
 
-###
+#####
 
-# sub.int <- sample(nrow(dt), 100000, replace = F)
-# sub <- dt[sub.int,]
-# plot(sub$n_SNV ~ sub$p_SNV_given_kmers)
-# abline(lm(sub$n_SNV ~ sub$p_SNV_given_kmers), col = "red")
-# abline(lm(sub$n_SNV ~ sub$p_SNV_given_kmers + sub$Read_depth), col = "blue")
-# 
-# plot(sub$n_SNV ~ sub$Read_depth)
-# abline(lm(sub$n_SNV ~ sub$Read_depth), col = "red")
+sub.int <- sample(nrow(dt), 100000, replace = F)
+sub <- dt[sub.int,]
+plot(sub$n_SNV ~ sub$p_SNV_given_kmers)
+abline(lm(sub$n_SNV ~ sub$p_SNV_given_kmers), col = "red")
+abline(lm(sub$n_SNV ~ sub$p_SNV_given_kmers + sub$Read_depth), col = "blue")
+# plot(lm(sub$n_SNV ~ sub$p_SNV_given_kmers + sub$Read_depth))
+
+
+plot(sub$n_SNV ~ sub$Read_depth)
+abline(lm(sub$n_SNV ~ sub$Read_depth), col = "red")

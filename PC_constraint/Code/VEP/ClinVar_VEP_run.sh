@@ -29,3 +29,10 @@ ls /opt/vep/.vep/
 # --fields "Gene,Feature,Feature_type,Consequence,IMPACT,SYMBOL,SYMBOL_SOURCE,BIOTYPE,CANONICAL,CCDS" -- specify output fields
 # --pick -- one annotation per variant (https://www.ensembl.org/info/docs/tools/vep/script/vep_other.html#pick)
 ./vep -i /opt/vep/.vep/ClinVar_VEP_input.vcf --cache --ccds --symbol --biotype --canonical --vcf --fields "Gene,Feature,Feature_type,Consequence,IMPACT,SYMBOL,SYMBOL_SOURCE,BIOTYPE,CANONICAL,CCDS" --pick -o /opt/vep/.vep/ClinVar_VEP_output.vcf --stats_file /opt/vep/.vep/ClinVar_VEP_output.html --offline
+
+
+
+
+
+
+

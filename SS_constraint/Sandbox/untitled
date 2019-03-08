@@ -27,13 +27,15 @@ RAW_ROOT=/well/lindgren/George/Data/gnomAD/vcf_raw/
 OUTPUT_ROOT=/well/lindgren/George/Data/gnomAD/vcf_QCed_VEP/
 
 # create dummy dataset
-#head -10000 gnomad.genomes.r2.1.sites.chr21.vcf > dummy.vcf
+#SGE_TASK_ID=dummy
+head -100000 gnomad.genomes.r2.1.sites.chr17.vcf > "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
+
 
 # Save # lines 
 #awk '/^#/' "$RAW_ROOT"gnomad.genomes.r2.1.sites.chr"$SGE_TASK_ID".vcf > "$RAW_ROOT"gnomad.genomes.r2.1.sites.chr"$SGE_TASK_ID".vcf.meta
 
 # Remove # lines
-awk '!/^#/' "$RAW_ROOT"gnomad.genomes.r2.1.sites.chr"$SGE_TASK_ID".vcf > "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
+awk '!/^#/' "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf > tmp && mv tmp "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
 
 # awk from INFO colum into tmp files
 awk -F';' '
