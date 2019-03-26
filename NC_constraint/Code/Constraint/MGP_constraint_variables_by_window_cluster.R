@@ -1,0 +1,174 @@
+# script that creates data table for each chromosome
+# Header: POS; REF; ALT; SNV; P_SNV; Read Depth; Repeat
+
+rm(list = ls())
+graphics.off()
+
+library(data.table)
+library(evobiR)
+library(MASS)
+library(stringr)
+
+#!/usr/bin/env Rscript
+args = commandArgs(trailingOnly=TRUE)
+
+# test if there is at least one argument: if not, return an error
+if (length(args)==0) {
+  stop("At least one argument must be supplied", call.=FALSE)
+} 
+
+### FUNCTIONS
+
+### FUNCTION that returnes the probability of SNV for each k7mer in a sequence. 
+## INPUT: vector of bases
+## OUTPUT: vector of 7-mer probabilities of SNV
+slender_worm <- function(seq, P_SNV){
+  
+  kmer <- rep(NA, length(seq)-6)
+  
+  for (i in 1:(length(seq)-6)){
+    kmer[i] <- paste0(seq[i], seq[i+1], seq[i+2], seq[i+3], seq[i+4], seq[i+5], seq[i+6])
+  }
+  
+  # identify indices in P_SNV
+  ind <- match(kmer, P_SNV$k7_from, nomatch = NA)
+  pSNV <- c(rep(NA, 3), P_SNV$p_any_snp_given_k7[ind], rep(NA, 3))
+  
+  return(pSNV)
+}
+
+# # FUNCTION that calculates the proportion of CpG dinucleotides in a sequence
+# CG_worm <- function(seq){
+#   string <- paste0(seq, collapse = "")
+#   CG_count <- str_count(string, "CG")
+#   total.dinuc <- nchar(string)/2
+#   CG_prop <- CG_count/total.dinuc
+#   return(CG_prop)
+# }
+
+# FUNCTION that expands sequence
+seq2 <- Vectorize(seq.default, vectorize.args = c("from", "to"))
+
+# import repeat POS 
+# rmsk <- fread("~/Dropbox/PhD/Data/UCSC/M_rmsk_200bp_plus.txt")
+rmsk <- fread("/well/lindgren/George/Data/UCSC/M_rmsk_200bp_plus.txt")
+
+# set output list
+output <- list()
+
+### IMPORT
+# ref <- fread(paste0("/Volumes/HarEx/Data/Ensembl/Reference/Formatted/Mouse_REF_Ensembl_v94_chr", chr[i], ".txt"))
+ref <- fread(paste0("/well/lindgren/George/Data/Ensembl/Reference/Formatted/Mouse_REF_Ensembl_v94_chr", args[1], ".txt"))
+
+# vcf <- fread(paste0("~/Dropbox/PhD/Data/MGP/vcf_QCed_VEP/M_MGP_QCed_VEP_all_chr", chr[i], ".txt"))
+vcf <- fread(paste0("/well/lindgren/George/Data/MGP/vcf_QCed_VEP/M_MGP_QCed_VEP_all_chr", args[1], ".txt"))
+
+# alignment <- fread(paste0("/Volumes/HarEx/PC_constraint/Paper/Data/Ensembl_alignments/Mouse_Muscaroli_alignment_chr", chr[i], ".txt"))
+# rd <- fread(paste0("/Volumes/HarEx/Data/MGP/Read_depth/MGP_low_depth_POS_chr", chr[i], ".txt"))
+rd <- fread(paste0("/well/lindgren/George/Data/MGP/Read_depth/MGP_low_depth_POS_chr", args[1], ".txt"))
+
+# P_SNV <- fread("~/Dropbox/BitBucket_repos/phd/NC_constraint/Data/SNV_rates/MGP_7mer_SNV_rate.table")
+P_SNV <- fread("/well/lindgren/George/Data/SNV_rates/MGP_7mer_SNV_rate.table")
+
+  
+  ### FORMAT
+  
+  # get min and max POS for refenrecne
+  vcf <- vcf[,c(2,4,5)]
+  colnames(vcf) <- c("POS", "REF", "ALT")
+  min.POS <-  min(which(ref$REF != "N"))
+  max.POS <-   max(which(ref$REF != "N"))
+  
+  # subset REF by min and max POS 
+  dt <- subset(ref, ref$POS >= min.POS & ref$POS <= max.POS)
+  rm(ref)
+  
+  # merge REF with ALT
+  dt <- vcf[dt, on = c("POS", "REF")]
+  
+  # identify POS wit SNV
+  dt$SNV <- 0
+  dt$SNV[which(dt$POS %in% vcf$POS)] <- 1
+  rm(vcf)
+  
+  # get POS with low coverage
+  rd <- rd$V2
+  dt$RD <- 1
+  dt$RD[dt$POS %in% rd] <- 0
+  
+  # identify rmsk POS
+  rmsk_sub <- subset(rmsk, rmsk$chromosome == args[1])
+  rep.POS <- unlist(seq2(from = rmsk_sub$start, to = rmsk_sub$end))
+  dt$Repeat <- 0
+  dt$Repeat[dt$POS %in% rep.POS] <- 1
+  
+  # get unique p_any_snp_given_kmer
+  P_SNV <- P_SNV[,c("k7_from", "p_any_snp_given_k7")]
+  P_SNV <- unique(P_SNV)
+  
+  # get probability of SNV based on kmer. 
+  dt$P_SNV <- slender_worm(dt$REF, P_SNV)
+  
+  # calculate variables by window
+  x1 <- data.table(
+    n_SNV = SlidingWindow("sum", dt$SNV, 900, 100),
+    p_SNV_given_kmers = SlidingWindow("sum", dt$P_SNV, 900, 100),
+    # p.CpG <- SlidingWindow("CG_worm", dt$REF, 900, 100),
+    Read_depth = SlidingWindow("sum", dt$RD, 900, 100),
+    Repeats = SlidingWindow("sum", dt$Repeat, 900,100)
+  )
+  
+  x1$n_SNV <- (x1$n_SNV/900)
+  x1$p_SNV_given_kmers <- (x1$p_SNV_given_kmers/900)
+  x1$Read_depth <- (x1$Read_depth/900)
+  x1$Repeats <- (x1$Repeats/900)
+  
+  # Add chromosome, POS from, POS to for each window
+  x1$CHR <- rep(chr[i], nrow(x1))
+  x1$POS_from <- seq(from = (dt$POS[1] + 400),
+                     to = (dt$POS[1] + 399) + (100*nrow(x1)),
+                     by = 100)
+  x1$POS_to <- seq(from <- (dt$POS[1] + 499),
+                   to = (dt$POS[1] + 499) + (100*(nrow(x1)-1)),
+                   by = 100)
+  
+  # subset windows with >= 50% POS have RD >= 10x for all strains. 
+  # output <- subset(x1, x1$Read_depth >= 0.5)
+  
+  print(paste0(args[1], " done!"))
+  
+fwrite(output, paste0("/well/lindgren/George/Data/NC_constraint/MGP_constraint_variables_by_window_chr", args[1], ".csv"))
+
+
+#####
+
+
+# dt <- fread(paste0("~/Dropbox/BitBucket_repos/phd/NC_constraint/Data/Formatted/M_POS_REF_ALT_SNV_pSNV_RD_ALIGN_chr", chr, ".txt"))
+
+# get_POS_401 <- function(POS){
+#   return(POS[401])
+# }
+# id.2 <- SlidingWindow("get_POS_401", dt$POS, 900, 100)
+# x <- cbind(id, x)
+# 
+# hist(x1$RD)
+# x.sub <- subset(x1, x1$RD >= 450)
+# hist(x.sub$RD)
+# 
+# mod <- lm(x.sub$n.SNV ~ x.sub$p.Kmer + x.sub$RD)
+# summary(mod)
+# constraint <- studres(mod)
+# 
+# sub.int <- sample(nrow(x.sub), 100000, replace = F)
+# sub <- x.sub[sub.int,]
+# plot(sub$n.SNV ~ sub$p.Kmer)
+# summary(lm((sub$n.SNV ~ sub$p.Kmer)))
+# plot(sub$n.SNV ~ sub$RD)
+# plot(sub$n.SNV~sub$p.CpG)
+
+# mod <- lm(x1$n_SNV~x1$p_SNV_given_kmers+x1$Read_depth+x1$Repeats)
+# summary(mod)
+# plot(x1$n_SNV~x1$Repeats)
+# abline(lm(x1$n_SNV~x1$Repeats), col="red")
+
+

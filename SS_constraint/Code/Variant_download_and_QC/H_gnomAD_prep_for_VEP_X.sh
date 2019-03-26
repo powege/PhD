@@ -2,8 +2,7 @@
 
 #$ -cwd -V
 #$ -P lindgren.prjb -q long.qb
-#$ -t 1-22 -tc 16
-#$ -N gnomAD_prep_for_VEP
+#$ -N gnomAD_prep_for_VEP_X
 #$ -o /well/lindgren/George/Workflows/SS_constraint/Log/
 #$ -e /well/lindgren/George/Workflows/SS_constraint/Log/
 
@@ -25,17 +24,16 @@
 # Set variables
 RAW_ROOT=/well/lindgren/George/Data/gnomAD/vcf_raw/
 OUTPUT_ROOT=/well/lindgren/George/Data/gnomAD/vcf_QCed_VEP/
+SGE_TASK_ID=X
 
 # create dummy dataset
-#SGE_TASK_ID=dummy
-head -100000 gnomad.genomes.r2.1.sites.chr17.vcf > "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
-
+#head -10000 gnomad.genomes.r2.1.sites.chr21.vcf > dummy.vcf
 
 # Save # lines 
 #awk '/^#/' "$RAW_ROOT"gnomad.genomes.r2.1.sites.chr"$SGE_TASK_ID".vcf > "$RAW_ROOT"gnomad.genomes.r2.1.sites.chr"$SGE_TASK_ID".vcf.meta
 
 # Remove # lines
-awk '!/^#/' "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf > tmp && mv tmp "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
+awk '!/^#/' "$RAW_ROOT"gnomad.genomes.r2.1.sites.chr"$SGE_TASK_ID".vcf > "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
 
 # awk from INFO colum into tmp files
 awk -F';' '
@@ -228,7 +226,7 @@ awk '{print $1, $2, $3, $4, $5, $6, $7}' "$RAW_ROOT"gnomAD_formatted_for_VEP_chr
 mv "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
 
 # cbind INFO and vcf files
-paste "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf "$RAW_ROOT"INFO_chr"$SGE_TASK_ID".tmp > "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" && \
+paste -d " " "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf "$RAW_ROOT"INFO_chr"$SGE_TASK_ID".tmp > "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" && \
 mv "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
 
 # remove tmp files 
@@ -236,7 +234,7 @@ rm "$RAW_ROOT"*_chr"$SGE_TASK_ID".tmp
 
 # Subset variants with "PASS" filter status (this removes header and meta lines)
 awk '$7 == "PASS"' "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf > "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" && \
-mv "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" "$OUTPUT_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
+mv "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
 #awk '$7 == "PASS" || $7 == "RF"' dummy_formatted.vcf > tmp && mv tmp dummy_formatted.vcf
 
 

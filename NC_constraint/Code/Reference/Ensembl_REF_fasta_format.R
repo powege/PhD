@@ -6,11 +6,25 @@ graphics.off()
 
 library(data.table)
 
-fasta_convert <- function(in.path, in.file, chr, out.path, out.file){
-  for (i in chr){
+#!/usr/bin/env Rscript
+args = commandArgs(trailingOnly=TRUE)
+
+# test if there is at least one argument: if not, return an error
+if (length(args)!=3) {
+  stop("Exactly three arguments must be supplied", call.=FALSE)
+} 
+
+# set args variables
+in.file <- args[1]
+out.file <- args[2]
+chr <- args[3]
+
+### FUNCTIONS
+
+fasta_convert <- function(in.file, out.file, chr){
     
     # read file
-    in.file.path <- paste0(in.path, in.file, i, ".fa")
+    in.file.path <- paste0(in.file, chr, ".fa")
     fasta <- fread(in.file.path, sep = "\t")
     meta <- names(fasta) # get header description
     colnames(fasta) <- "V1"
@@ -28,41 +42,26 @@ fasta_convert <- function(in.path, in.file, chr, out.path, out.file){
     out <- data.table(POS = POS, 
                       REF = REF)
     
-    out.file.path <- paste0(out.path, out.file, i, ".txt")
+    # identify masked POS
+    ind <- which(         out$REF == "N" |
+                          out$REF == "n" | 
+                           out$REF == "a" | 
+                           out$REF == "c" | 
+                           out$REF == "t" |
+                           out$REF == "g")
+    out$REP_MASK <- 0
+    out$REP_MASK[ind] <- 1
+    
+    # convert REF to upper case
+    out$REF <- toupper(out$REF)
+    
+    out.file.path <- paste0(out.file, chr, ".txt")
     fwrite(out, file = out.file.path, sep = "\t")
-    print (paste("chr", i, "done!", sep = " "))
-  }
+    print (paste(chr, "done!", sep = " "))
+  
 }
 
-# # Human
-# H_in.path <- "/Volumes/Untitled/PC_constraint/Paper/Data/Ensembl_reference/"
-# H_in.file <- "Homo_sapiens.GRCh38.dna.chromosome."
-# H_chr <- c(1:22, "X")
-# H_out.path <- "/Volumes/Untitled/PC_constraint/Paper/Data/Ensembl_reference/"
-# H_out.file <- "H_reference_chr"
-# 
-# fasta_convert(H_in.path, H_in.file, H_chr, H_out.path, H_out.file)
-
-# Mouse
-M_in.path <- "/Volumes/Untitled/PC_constraint/Paper/Data/Ensembl_reference/"
-M_in.file <- "Mus_musculus.GRCm38.dna.chromosome."
-M_chr <- c(1:19, "X")
-M_out.path <- "/Volumes/Untitled/PC_constraint/Paper/Data/Ensembl_reference/"
-M_out.file <- "Mouse_REF_Ensembl_v94_chr"
-
-fasta_convert(M_in.path, M_in.file, M_chr, M_out.path, M_out.file)
-
-
-
-
-
-####
-
-# in.path <- H_in.path
-# in.file <- H_in.file
-# chr <- c(1:3)
-# out.path <- H_out.path
-# out.file <- H_out.file
-# i <- 1
+### RUN
+fasta_convert(in.file, out.file, chr)
 
 

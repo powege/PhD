@@ -13,7 +13,9 @@
 module load ensembl-tools/94
 
 ### $PED_ROOT is the rootname of your files
-PED_ROOT=/well/lindgren/George/Data/gnomAD/vcf_QCed_VEP/
+IN_ROOT=/well/lindgren/George/Data/gnomAD/vcf_raw/
+OUT_ROOT=/well/lindgren/George/Data/gnomAD/vcf_QCed_VEP/
+
 
 ### set your VEP variable
 VEP=/well/lindgren/George/ensembl-vep/vep
@@ -47,7 +49,7 @@ VEP=/well/lindgren/George/ensembl-vep/vep
 # --vcf -- output as vcf file
 # --fields "Gene,Feature,Feature_type,Consequence,IMPACT,SYMBOL,SYMBOL_SOURCE,BIOTYPE,CANONICAL,CCDS" -- specify output fields
 # --pick -- one annotation per variant (https://www.ensembl.org/info/docs/tools/vep/script/vep_other.html#pick)
-$VEP -i "$PED_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf  \
+$VEP -i "$IN_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf  \
  --dir_cache /well/lindgren/George/.vep \
  --cache \
  --ccds \
@@ -57,7 +59,7 @@ $VEP -i "$PED_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf  \
  --vcf \
  --fields "Gene,Feature,Feature_type,Consequence,IMPACT,SYMBOL,SYMBOL_SOURCE,BIOTYPE,CANONICAL,CCDS" \
  --pick \
- -o "$PED_ROOT"gnomAD_VEP_output_chr"$SGE_TASK_ID".vcf \
+ -o "$OUT_ROOT"gnomAD_VEP_output_chr"$SGE_TASK_ID".vcf \
  --no_stats \
  --offline
 

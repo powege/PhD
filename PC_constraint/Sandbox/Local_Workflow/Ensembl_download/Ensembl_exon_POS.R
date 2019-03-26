@@ -28,10 +28,10 @@ get_coords <- function(species, chr){
 }
 
 M_exon.pos <- get_coords(species = "mmusculus_gene_ensembl", chr = c(1:19, "X"))
-H_exon.pos <- get_coords(species = "hsapiens_gene_ensembl", chr = c(1:22, "X"))
+# H_exon.pos <- get_coords(species = "hsapiens_gene_ensembl", chr = c(1:22, "X"))
 
-write.csv(M_exon.pos, "../../Data/Ensembl/M_exon_POS.csv", row.names = F)
-write.csv(H_exon.pos, "../../Data/Ensembl/H_exon_POS.csv", row.names = F)
+fwrite(M_exon.pos, "~/Dropbox/PhD/Data/Ensembl/BioMart/M_PC_exon_POS.csv")
+# fwrite(H_exon.pos, "../../Data/Ensembl/H_PC_exon_POS.csv")
 
 
 

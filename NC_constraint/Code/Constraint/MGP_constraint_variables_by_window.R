@@ -1,5 +1,5 @@
 # script that creates data table for each chromosome
-# Header: POS; REF; ALT; SNV; P_SNV; Read Depth; Human REF; 
+# Header: POS; REF; ALT; SNV; P_SNV; Read Depth; Repeat
 
 rm(list = ls())
 graphics.off()
@@ -38,6 +38,11 @@ slender_worm <- function(seq, P_SNV){
 #   return(CG_prop)
 # }
 
+# FUNCTION that expands sequence
+seq2 <- Vectorize(seq.default, vectorize.args = c("from", "to"))
+
+# import repeat POS 
+rmsk <- fread("~/Dropbox/PhD/Data/UCSC/M_rmsk_200bp_plus.txt")
 
 # set output list
 output <- list()
@@ -79,6 +84,12 @@ for (i in 1:length(chr)){
   dt$RD <- 1
   dt$RD[dt$POS %in% rd] <- 0
   
+  # identify rmsk POS
+  rmsk_sub <- subset(rmsk, rmsk$chromosome == chr[i])
+  rep.POS <- unlist(seq2(from = rmsk_sub$start, to = rmsk_sub$end))
+  dt$Repeat <- 0
+  dt$Repeat[dt$POS %in% rep.POS] <- 1
+  
   # get unique p_any_snp_given_kmer
   P_SNV <- P_SNV[,c("k7_from", "p_any_snp_given_k7")]
   P_SNV <- unique(P_SNV)
@@ -91,10 +102,14 @@ for (i in 1:length(chr)){
                   n_SNV = SlidingWindow("sum", dt$SNV, 900, 100),
                   p_SNV_given_kmers = SlidingWindow("sum", dt$P_SNV, 900, 100),
                   # p.CpG <- SlidingWindow("CG_worm", dt$REF, 900, 100),
-                  Read_depth = SlidingWindow("sum", dt$RD, 900, 100)
+                  Read_depth = SlidingWindow("sum", dt$RD, 900, 100),
+                  Repeats = SlidingWindow("sum", dt$Repeat, 900,100)
                   )
-
+  
+  x1$n_SNV <- (x1$n_SNV/900)
+  x1$p_SNV_given_kmers <- (x1$p_SNV_given_kmers/900)
   x1$Read_depth <- (x1$Read_depth/900)
+  x1$Repeats <- (x1$Repeats/900)
   
   # Add chromosome, POS from, POS to for each window
   x1$CHR <- rep(chr[i], nrow(x1))
@@ -106,7 +121,8 @@ for (i in 1:length(chr)){
                 by = 100)
 
   # subset windows with >= 50% POS have RD >= 10x for all strains. 
-  output[[i]] <- subset(x1, x1$Read_depth >= 0.5)
+  output[[i]] <- x1
+  # output[[i]] <- subset(x1, x1$Read_depth >= 0.5)
 
   print(paste0(chr[i], " done!"))
   
@@ -141,5 +157,10 @@ fwrite(out, "~/Dropbox/PhD/Data/NC_constraint/MGP_constraint_variables_by_window
 # summary(lm((sub$n.SNV ~ sub$p.Kmer)))
 # plot(sub$n.SNV ~ sub$RD)
 # plot(sub$n.SNV~sub$p.CpG)
+
+# mod <- lm(x1$n_SNV~x1$p_SNV_given_kmers+x1$Read_depth+x1$Repeats)
+# summary(mod)
+# plot(x1$n_SNV~x1$Repeats)
+# abline(lm(x1$n_SNV~x1$Repeats), col="red")
 
 

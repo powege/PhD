@@ -226,7 +226,7 @@ awk '{print $1, $2, $3, $4, $5, $6, $7}' "$RAW_ROOT"gnomAD_formatted_for_VEP_chr
 mv "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
 
 # cbind INFO and vcf files
-paste "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf "$RAW_ROOT"INFO_chr"$SGE_TASK_ID".tmp > "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" && \
+paste -d " " "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf "$RAW_ROOT"INFO_chr"$SGE_TASK_ID".tmp > "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" && \
 mv "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
 
 # remove tmp files 
@@ -234,7 +234,7 @@ rm "$RAW_ROOT"*_chr"$SGE_TASK_ID".tmp
 
 # Subset variants with "PASS" filter status (this removes header and meta lines)
 awk '$7 == "PASS"' "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf > "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" && \
-mv "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" "$OUTPUT_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
+mv "$RAW_ROOT"tmp_chr"$SGE_TASK_ID" "$RAW_ROOT"gnomAD_formatted_for_VEP_chr"$SGE_TASK_ID".vcf
 #awk '$7 == "PASS" || $7 == "RF"' dummy_formatted.vcf > tmp && mv tmp dummy_formatted.vcf
 
 

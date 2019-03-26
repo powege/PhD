@@ -101,9 +101,103 @@ count_7mer_sub <- function(anc.SEQ, mu.SEQ, k7_mu_all){
   }
 }
 
-# ### FUNCTION that calculates 3mer relative substitution rates
-# k7_mu_rr <- function(chr, in_file_path){
-#   
+### FUNCTION that calculates 3mer relative substitution rates
+k7_mu_rr <- function(chr, in_file_path){
+
+  # Initiate output lists
+  k7_mu_count_list <- list()
+  k7_total_list <- list()
+
+  # Identify all possible 3-mer substitutions
+  k7_mu_all <- k7mer_changes(7)
+  k7_all <- data.table(k7_from = unique(k7_mu_all$k7_from))
+
+  # count by chromosome
+  for(i in 1:length(chr)){
+
+    ### IMPORT
+    in_seq_path <- paste0(in_file_path, chr[i], "_formatted.txt")
+    df.seq <- fread(in_seq_path)
+    df.seq <- df.seq[,c("POS", "REF", "ALT")]
+    colnames(df.seq) <- c("POS", "ANCESTRAL", "MUTANT")
+    df.seq <- df.seq[!(df.seq$ANCESTRAL==""),]  # remove rows where POS == ""
+    # df.seq$ANCESTRAL[df.seq$ANCESTRAL == ""] <- "-"
+    # table(df.seq$ANCESTRAL)
+    tmp <- df.seq$MUTANT
+    ind <- which(tmp == "A" | tmp == "T" | tmp == "C" | tmp == "G")
+    df.seq$MUTANT <- df.seq$ANCESTRAL
+    df.seq$MUTANT[ind] <- tmp[ind]
+    rm(tmp)
+
+    ### Split into vectors of sequential POS
+    ANCESTRAL <- split(df.seq$ANCESTRAL, cumsum(c(TRUE, diff(df.seq$POS)!=1)))
+    MUTANT <- split(df.seq$MUTANT, cumsum(c(TRUE, diff(df.seq$POS)!=1)))
+
+    ### Remove vectors with bases < 7
+    ANCESTRAL <- ANCESTRAL[lapply(ANCESTRAL, length) >= 7]
+    MUTANT <- MUTANT[lapply(MUTANT, length) >= 7]
+
+    ### Count 3-mers in ancestral sequence
+    kmer7_totals <- lapply(ANCESTRAL, count_7mer, k7_all = k7_all)
+    # sum all counts in list
+    k7_total_list[[i]] <- rowSums(sapply(kmer7_totals, `[[`, 2), na.rm = TRUE)
+
+    ### Count the 3-mer substitutions with mutant sequence
+    kmer7_sub_totals <- list()
+    for (j in 1:length(ANCESTRAL)){
+      kmer7_sub_totals[[j]] <- count_7mer_sub(anc.SEQ = ANCESTRAL[[j]],
+                                              mu.SEQ = MUTANT[[j]],
+                                              k7_mu_all = k7_mu_all)
+      # print(j)
+    }
+    # sum all counts in list
+    k7_mu_count_list[[i]] <- rowSums(sapply(kmer7_sub_totals, `[[`, 3), na.rm = TRUE)
+
+    print(paste("chr", chr[i], "done!"))
+  }
+
+  # Sum total kmer across chromosomes
+  k7_total <- do.call(cbind, k7_total_list)
+  k7_total <- apply(k7_total, 1, sum, na.rm = T)
+  k7_total <- data.frame(k7_from = k7_all$k7_from,
+                         k7_from_N = k7_total)
+
+  # Sum total kmer changes across chromosomes
+  k7_mu_total <- do.call(cbind, k7_mu_count_list)
+  k7_mu_total <- apply(k7_mu_total, 1, sum, na.rm = T)
+  k7_mu_total <- data.frame(k7_from = k7_mu_all$k7_from,
+                            k7_to = k7_mu_all$k7_to,
+                            k7_mu_N = k7_mu_total)
+
+  ### Calculate relative mu rates
+
+  k7_out <- merge(k7_mu_total, k7_total, all = T)
+
+  p_any_snp_given_k7 <- function(sub){
+    sub$p_any_snp_given_k7 <- sum(sub$k7_mu_N)/sub$k7_from_N[1]
+  }
+  tmp <- ddply(k7_out, "k7_from", p_any_snp_given_k7)
+  colnames(tmp) <- c("k7_from", "p_any_snp_given_k7")
+  k7_out <- merge(k7_out, tmp, all = T)
+
+  k7_out$p_snp_given_k7 <- k7_out$k7_mu_N/k7_out$k7_from_N
+
+  k7_out$k7_mu_rr <- k7_out$k7_mu_N/k7_out$k7_from_N
+
+  print(paste("CHROMOSOME", chr[i], "DONE!", sep = " "))
+  return(k7_out)
+}
+
+
+### RUN 
+
+# MOUSE
+chr <- c(1:19, "X")
+in_file_path   <- "~/Dropbox/BitBucket_repos/phd/NC_constraint/Data/Alignment/M_chr"
+k7_out <- k7_mu_rr(chr, in_file_path)
+write.csv(k7_out, "~/Dropbox/BitBucket_repos/phd/NC_constraint/Data/Variation_rates/MGP_7mer_SNV_rate.table", row.names = F)
+
+
 #   # Initiate output lists
 #   k7_mu_count_list <- list()
 #   k7_total_list <- list()
@@ -116,8 +210,14 @@ count_7mer_sub <- function(anc.SEQ, mu.SEQ, k7_mu_all){
 #   for(i in 1:length(chr)){
 #     
 #     ### IMPORT
-#     in_seq_path <- paste0(in_file_path, chr[i], "_formatted.txt")
-#     df.seq <- fread(in_seq_path)
+#     
+#     # reference
+#     df.seq <- fread(paste0("", chr[i], ""))
+#     # alternate
+#     vcf <- fread(paste0("", chr[i], ""))
+#     
+#     # merge REF and ALT 
+#     
 #     df.seq <- df.seq[,c("POS", "REF", "ALT")]
 #     colnames(df.seq) <- c("POS", "ANCESTRAL", "MUTANT")
 #     df.seq <- df.seq[!(df.seq$ANCESTRAL==""),]  # remove rows where POS == ""
@@ -128,7 +228,7 @@ count_7mer_sub <- function(anc.SEQ, mu.SEQ, k7_mu_all){
 #     df.seq$MUTANT <- df.seq$ANCESTRAL
 #     df.seq$MUTANT[ind] <- tmp[ind]
 #     rm(tmp)
-# 
+#     
 #     ### Split into vectors of sequential POS
 #     ANCESTRAL <- split(df.seq$ANCESTRAL, cumsum(c(TRUE, diff(df.seq$POS)!=1)))
 #     MUTANT <- split(df.seq$MUTANT, cumsum(c(TRUE, diff(df.seq$POS)!=1)))
@@ -179,111 +279,11 @@ count_7mer_sub <- function(anc.SEQ, mu.SEQ, k7_mu_all){
 #   tmp <- ddply(k7_out, "k7_from", p_any_snp_given_k7)
 #   colnames(tmp) <- c("k7_from", "p_any_snp_given_k7")
 #   k7_out <- merge(k7_out, tmp, all = T)
-# 
+#   
 #   k7_out$p_snp_given_k7 <- k7_out$k7_mu_N/k7_out$k7_from_N
-# 
+#   
 #   k7_out$k7_mu_rr <- k7_out$k7_mu_N/k7_out$k7_from_N
-# 
+#   
 #   print(paste("CHROMOSOME", chr[i], "DONE!", sep = " "))
 #   return(k7_out)
 # }
-
-
-### RUN 
-
-# MOUSE
-chr <- c(1:19, "X")
-in_file_path   <- "~/Dropbox/BitBucket_repos/phd/NC_constraint/Data/Alignment/M_chr"
-k7_out <- k7_mu_rr(chr, in_file_path)
-write.csv(k7_out, "~/Dropbox/BitBucket_repos/phd/NC_constraint/Data/Variation_rates/MGP_7mer_SNV_rate.table", row.names = F)
-
-
-  # Initiate output lists
-  k7_mu_count_list <- list()
-  k7_total_list <- list()
-  
-  # Identify all possible 3-mer substitutions
-  k7_mu_all <- k7mer_changes(7)
-  k7_all <- data.table(k7_from = unique(k7_mu_all$k7_from))
-  
-  # count by chromosome
-  for(i in 1:length(chr)){
-    
-    ### IMPORT
-    
-    # reference
-    df.seq <- fread(paste0("", chr[i], ""))
-    # alternate
-    vcf <- fread(paste0("", chr[i], ""))
-    
-    # merge REF and ALT 
-    
-    df.seq <- df.seq[,c("POS", "REF", "ALT")]
-    colnames(df.seq) <- c("POS", "ANCESTRAL", "MUTANT")
-    df.seq <- df.seq[!(df.seq$ANCESTRAL==""),]  # remove rows where POS == ""
-    # df.seq$ANCESTRAL[df.seq$ANCESTRAL == ""] <- "-"
-    # table(df.seq$ANCESTRAL)
-    tmp <- df.seq$MUTANT
-    ind <- which(tmp == "A" | tmp == "T" | tmp == "C" | tmp == "G")
-    df.seq$MUTANT <- df.seq$ANCESTRAL
-    df.seq$MUTANT[ind] <- tmp[ind]
-    rm(tmp)
-    
-    ### Split into vectors of sequential POS
-    ANCESTRAL <- split(df.seq$ANCESTRAL, cumsum(c(TRUE, diff(df.seq$POS)!=1)))
-    MUTANT <- split(df.seq$MUTANT, cumsum(c(TRUE, diff(df.seq$POS)!=1)))
-    
-    ### Remove vectors with bases < 7
-    ANCESTRAL <- ANCESTRAL[lapply(ANCESTRAL, length) >= 7]
-    MUTANT <- MUTANT[lapply(MUTANT, length) >= 7]
-    
-    ### Count 3-mers in ancestral sequence 
-    kmer7_totals <- lapply(ANCESTRAL, count_7mer, k7_all = k7_all)
-    # sum all counts in list
-    k7_total_list[[i]] <- rowSums(sapply(kmer7_totals, `[[`, 2), na.rm = TRUE)
-    
-    ### Count the 3-mer substitutions with mutant sequence
-    kmer7_sub_totals <- list()
-    for (j in 1:length(ANCESTRAL)){
-      kmer7_sub_totals[[j]] <- count_7mer_sub(anc.SEQ = ANCESTRAL[[j]],
-                                              mu.SEQ = MUTANT[[j]],
-                                              k7_mu_all = k7_mu_all)
-      # print(j)
-    }
-    # sum all counts in list
-    k7_mu_count_list[[i]] <- rowSums(sapply(kmer7_sub_totals, `[[`, 3), na.rm = TRUE)
-    
-    print(paste("chr", chr[i], "done!"))
-  }
-  
-  # Sum total kmer across chromosomes
-  k7_total <- do.call(cbind, k7_total_list)
-  k7_total <- apply(k7_total, 1, sum, na.rm = T)
-  k7_total <- data.frame(k7_from = k7_all$k7_from,
-                         k7_from_N = k7_total)
-  
-  # Sum total kmer changes across chromosomes
-  k7_mu_total <- do.call(cbind, k7_mu_count_list)
-  k7_mu_total <- apply(k7_mu_total, 1, sum, na.rm = T)
-  k7_mu_total <- data.frame(k7_from = k7_mu_all$k7_from,
-                            k7_to = k7_mu_all$k7_to,
-                            k7_mu_N = k7_mu_total)
-  
-  ### Calculate relative mu rates
-  
-  k7_out <- merge(k7_mu_total, k7_total, all = T)
-  
-  p_any_snp_given_k7 <- function(sub){
-    sub$p_any_snp_given_k7 <- sum(sub$k7_mu_N)/sub$k7_from_N[1]
-  }
-  tmp <- ddply(k7_out, "k7_from", p_any_snp_given_k7)
-  colnames(tmp) <- c("k7_from", "p_any_snp_given_k7")
-  k7_out <- merge(k7_out, tmp, all = T)
-  
-  k7_out$p_snp_given_k7 <- k7_out$k7_mu_N/k7_out$k7_from_N
-  
-  k7_out$k7_mu_rr <- k7_out$k7_mu_N/k7_out$k7_from_N
-  
-  print(paste("CHROMOSOME", chr[i], "DONE!", sep = " "))
-  return(k7_out)
-}
