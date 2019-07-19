@@ -3,8 +3,7 @@
 #$ -cwd -V
 #$ -P lindgren.prjc -q short.qc
 #$ -pe shmem 16
-#$ -t 1-22 -tc 16
-#$ -N Human_constraint_vars
+#$ -N Alignment_MAF_format
 #$ -o /well/lindgren/George/Workflows/NC_constraint/Log/
 #$ -e /well/lindgren/George/Workflows/NC_constraint/Log/
 
@@ -18,19 +17,15 @@ echo "Username: "`whoami`
 echo "Started date: "`date`
 echo "##########################################################"
 
-# module use -a /apps/eb/skylake/modules/all
-# module load R/3.5.1-foss-2018b-X11-20180604
-
 module load R/3.4.3
 
-# human
-Rscript --vanilla /well/lindgren/George/Workflows/NC_constraint/Code/Constraint_by_window/Constraint_variables_by_window.R \
-"$SGE_TASK_ID" \
-/well/lindgren/George/Data/Ensembl/Reference/Formatted/Human_REF_sm_Ensembl_GRCm38_v94_chr"$SGE_TASK_ID".txt \
-/well/lindgren/George/Data/1KGP/Variants/vcf_QCed_VEP/1000GP_phase3_QCed_VEP_v94_allPASS_chr"$SGE_TASK_ID".txt \
-/well/lindgren/George/Data/1KGP/StrictMask/Formatted/1KGP_Mask_chr"$SGE_TASK_ID".txt \
-/well/lindgren/George/Data/NC_constraint/SNV_rates/1000GP_7mer_SNV_rates.table \
-human
+# run Ensembl_alignment_MAF_format.R
+Rscript --vanilla /well/lindgren/George/Workflows/NC_constraint/Code/Data_format_and_QC/Alignment/Ensembl_alignment_MAF_format.R  \
+"/well/lindgren/George/Data/Ensembl/Alignment/Raw/" \
+"/well/lindgren/George/Data/Ensembl/Alignment/Formatted/" \
+"homo_sapiens_GRCh38_vs_mus_musculus_GRCm38_lastz_net/" \
+"homo_sapiens_GRCh38_vs_mus_musculus_GRCm38_lastz_net.chr" \
+"H_HtoM_alignment_long_chr" 
 
 
 echo "###########################################################"
@@ -38,4 +33,3 @@ echo "Finished at: "`date`
 echo "###########################################################"
 
 exit 0
-

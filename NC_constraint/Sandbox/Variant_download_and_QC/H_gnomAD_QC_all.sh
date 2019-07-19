@@ -3,6 +3,8 @@
 ### Script that QCs gnomAD vcf:
 # -- subsets SNVs with "PASS" filter status
 
+### get controls_AC and controls_AF
+
 # Set variables
 RAW_ROOT=/well/lindgren/George/Data/gnomAD/vcf_raw
 OUTPUT_ROOT=/well/lindgren/George/Data/gnomAD/vcf_QCed_VEP

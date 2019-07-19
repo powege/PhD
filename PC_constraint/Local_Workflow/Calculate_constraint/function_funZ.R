@@ -70,8 +70,8 @@ fun_Z <- function(df, fun_maf, syn_maf){
   # summary(mod)
   
   # model coeff
-  # coef <- summary(mod)$coef
-  # r2 <- summary(mod)$adj.r.squared
+  coef <- summary(mod)$coef
+  r2 <- summary(mod)$adj.r.squared
   mse <- mean(mod$residuals^2) # mean squared error
   
   ### PREDICT

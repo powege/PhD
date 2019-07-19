@@ -14,22 +14,29 @@ args = commandArgs(trailingOnly=TRUE)
 
 # test if there is at least one argument: if not, return an error
 if (length(args)==0) {
-  stop("At least one argument must be supplied", call.=FALSE)
+  stop("Arguments must be supplied", call.=FALSE)
 } 
 
 # set args
-chromo <- args[1]
-ref.file <- args[2]
-vcf.file <- args[3]
-mask.file <- args[4]
-mu_table.file <- args[5]
-species <- args[6]
+species <- args[1]
+chromo <- as.integer(args[2])
+window.size <- as.integer(args[3])
+window.shift <- as.integer(args[4])
+ref.file <- args[5]
+vcf.file <- args[6]
+mask.file <- args[7]
+alignment.file <- args[8]
+mu_table.file <- args[9]
+out.file <- args[10]
 # chromo <- 19
 # ref.file <- "/well/lindgren/George/Data/Ensembl/Reference/Formatted/Human_REF_sm_Ensembl_GRCm38_v94_chr19.txt"
-# vcf.file <- "/well/lindgren/George/Data/1KGP/Variants/vcf_QCed_VEP/1000GP_phase3_QCed_VEP_v94_allPASS_chr19.txt" 
+# vcf.file <- "/well/lindgren/George/Data/1KGP/Variants/vcf_QCed_VEP/1000GP_phase3_QCed_VEP_v94_allPASS_chr19.txt"
 # mask.file <- "/well/lindgren/George/Data/MGP/Masks/MGP_Mask_chr19.txt"
-# mu_table.file <- "/well/lindgren/George/Data/1KGP/StrictMask/Formatted/1KGP_StrictMask_chr19.txt" 
+# mu_table.file <- "/well/lindgren/George/Data/1KGP/StrictMask/Formatted/1KGP_StrictMask_chr19.txt"
 # species <- "human"
+# window.size <- 950
+# window.shift <- 50
+# alignment.file <- "~/Dropbox/PhD/Data/Ensembl/Alignment/Formatted/H_HtoM_alignment_short.txt"
 
 
 ### FUNCTIONS
@@ -62,37 +69,49 @@ n_CpG <- function(seq){
   return(CpG_count)
 }
 
-# FUNCTION that calculates the weighted sum of a vector of length 650. 
-# the middle 50 numbers are weighted 1
-# all other numbers are weighted 0.1
-sum_650_50_weight <- function(seq){
-  central <- sum(seq[c(301:350)]) * 1
-  outer <- sum(seq[c(1:300,351:650)]) * 0.1
-  weighted <- (central + outer)
+# FUNCTION that calculates the weighted sum of a window
+# the middle numbers are weighted 1
+# all other numbers are weighted lit a linear function between 0 and 1 (ie 0 outside the window)
+sum_weight <- function(sequence, window.size, window.shift){
+
+  outer.length <- (window.size - window.shift )/2
+  
+  weighted <- sum((sequence[1:outer.length]) * seq(from = 0, to = 1, length.out = outer.length)) +
+                   sum((sequence[(outer.length + 1):(outer.length + window.shift)] * 1)) +
+                   sum((sequence[(outer.length + window.shift + 1):(window.size)] * seq(from = 1, to = 0, length.out = outer.length))
+  )
   return(weighted)
 }
 
-# FUNCTION that calculates the weighted number of CpG dinucleotides in a sequence (650 long).
-# the middle 52 numbers are weighted 1 
-# all other numbers are weighted 0.1
-n_CpG_650_50_weight <- function(seq){
-  central_CG_count <- str_count(paste0(seq[c(300:351)], collapse = ""), "CG") * 1
-  outer_CG_count1 <- str_count(paste0(seq[c(1:300)], collapse = ""), "CG") * 0.1
-  outer_CG_count2 <- str_count(paste0(seq[c(351:650)], collapse = ""), "CG") * 0.1
-  weighted <- (central_CG_count + outer_CG_count1 + outer_CG_count2)
+# FUNCTION that calculates the weighted number of CpG dinucleotides in a sequence
+n_CpG_weight <- function(sequence, window.size, window.shift){
+  
+  CG.int <- unlist(str_locate_all(paste0(sequence, collapse = ""), "CG"))
+  binary <- rep(0, length(sequence))
+  binary[CG.int] <- 1
+  
+  outer.length <- (window.size - window.shift )/2
+  
+  weighted <- sum((binary[1:outer.length]) * seq(from = 0, to = 1, length.out = outer.length)) +
+    sum((binary[(outer.length + 1):(outer.length + window.shift)] * 1)) +
+    sum((binary[(outer.length + window.shift + 1):(window.size)] * seq(from = 1, to = 0, length.out = outer.length))
+  )
   return(weighted)
 }
 
-# FUNCTION that sums the middle 50 numbers in a vector length 650
-n_mask_650_50_central <- function(seq){
-  central <- sum(seq[c(301:350)])
+# FUNCTION that sums the middle numbers in a window
+n_central <- function(sequence, window.size, window.shift){
+  outer.length <- (window.size - window.shift )/2
+  central <- sum(sequence[(outer.length + 1):(outer.length + window.shift)])
   return(central)
 }
 
+# FUNCTION that vectorises seq
+seq2 <- Vectorize(seq.default, vectorize.args = c("from", "to"))
 
 ### IMPORT
 
-# reference genome
+# reference genome and soft mask
 ref <- fread(ref.file, fill = T)
 # SNVs
 vcf <- fread(vcf.file, fill = T)
@@ -100,7 +119,8 @@ vcf <- fread(vcf.file, fill = T)
 mask <- fread(mask.file, fill = T)
 # SNV rate table
 P_SNV <- fread(mu_table.file, fill = T)
-
+# alignment
+align <- fread(alignment.file, fill = T)
   
   ### FORMAT
   
@@ -113,7 +133,6 @@ P_SNV <- fread(mu_table.file, fill = T)
   
   # subset REF by min and max POS 
   dt <- subset(ref, ref$POS >= min.POS & ref$POS <= max.POS)
-  dt$REP_MASK <- NULL
   rm(ref)
   
   # merge REF with ALT
@@ -128,6 +147,12 @@ P_SNV <- fread(mu_table.file, fill = T)
   colnames(mask) <- c("POS", "MASK")
   dt <- mask[dt, on = c("POS")]
   
+  # identify POS that are aligned
+  align <- subset(align, align$V1 == chromo)
+  dt$aligned <- 0
+  dt$aligned[which(dt$POS %in% unlist(seq2(from = align$V2, to = align$V3)))] <- 1
+  rm(align)
+  
   # get unique p_any_snp_given_kmer
   P_SNV <- P_SNV[,c("k7_from", "p_any_snp_given_k7")]
   P_SNV <- unique(P_SNV)
@@ -135,36 +160,42 @@ P_SNV <- fread(mu_table.file, fill = T)
   # get probability of SNV based on kmer. 
   dt$P_SNV <- slender_worm(dt$REF, P_SNV)
 
-  # calculate variables by window 650 bp sliding 50 bp using zoo
-  x65.05 <- data.table(
-    n_SNV = rollapply(dt$SNV, width = 650, by = 50, FUN = sum, align = "left"),
-    n_SNV_weighted = rollapply(dt$SNV, width = 650, by = 50, FUN = sum_650_50_weight, align = "left"),
+  # calculate variables by sliding window using zoo
+  x.out <- data.table(
+    n_SNV = rollapply(dt$SNV, width = window.size, by = window.shift, FUN = sum, align = "left"),
+    n_SNV_weighted = rollapply(dt$SNV, width = window.size, by = window.shift, FUN = sum_weight, window.size = window.size, window.shift = window.shift, align = "left"),
     
-    p_SNV_given_kmers = rollapply(dt$P_SNV, width = 650, by = 50, FUN = sum, align = "left"),
-    p_SNV_given_kmers_weighted = rollapply(dt$P_SNV, width = 650, by = 50, FUN = sum_650_50_weight, align = "left"),
+    p_SNV_given_kmers = rollapply(dt$P_SNV, width = window.size, by = window.shift, FUN = sum, align = "left"),
+    p_SNV_given_kmers_weighted = rollapply(dt$P_SNV, width = window.size, by = window.shift, FUN = sum_weight, window.size = window.size, window.shift = window.shift, align = "left"),
     
-    n_CpG = rollapply(dt$REF, width = 650, by = 50, FUN = n_CpG, align = "left"),
-    n_CpG_weighted = rollapply(dt$REF, width = 650, by = 50, FUN = n_CpG_650_50_weight, align = "left"),
+    n_CpG = rollapply(dt$REF, width = window.size, by = window.shift, FUN = n_CpG, align = "left"),
+    n_CpG_weighted = rollapply(dt$REF, width = window.size, by = window.shift, FUN = n_CpG_weight, window.size = window.size, window.shift = window.shift, align = "left"),
     
-    n_mask = rollapply(dt$MASK, width = 650, by = 50, FUN = sum, align = "left"),
-    n_mask_central = rollapply(dt$MASK, width = 650, by = 50, FUN = n_mask_650_50_central, align = "left")
+    n_mask = rollapply(dt$MASK, width = window.size, by = window.shift, FUN = sum, align = "left"),
+    n_mask_central = rollapply(dt$MASK, width = window.size, by = window.shift, FUN = n_central, window.size = window.size, window.shift = window.shift, align = "left"),
+    n_RepMask = rollapply(dt$REP_MASK, width = window.size, by = window.shift, FUN = sum, align = "left"),
+    
+    n_aligned_central = rollapply(dt$aligned, width = window.size, by = window.shift, FUN = n_central, window.size = window.size, window.shift = window.shift, align = "left")
+    # n_aligned = rollapply(dt$aligned, width = window.size, by = window.shift, FUN = sum, align = "left"),
+    # n_aligned_weighted = rollapply(dt$aligned, width = window.size, by = window.shift, FUN = sum_weight, window.size = window.size, window.shift = window.shift, align = "left")
   )
 
   # Add chromosome, POS from, POS to for each window
-  x65.05$CHR <- rep(args[1], nrow(x65.05))
-  x65.05$POS_from <- seq(from = (dt$POS[1] + 300),
-                       to = (dt$POS[1] + 299) + (50*nrow(x65.05)),
-                       by = 50)
-  x65.05$POS_to <- seq(from <- (dt$POS[1] + 349),
-                     to = (dt$POS[1] + 349) + (50*(nrow(x65.05)-1)),
-                     by = 50)
+  outer.length <- (window.size - window.shift )/2
+  x.out$CHR <- rep(chromo, nrow(x.out))
+  x.out$POS_from <- seq(from = (dt$POS[1] + outer.length),
+                       to = (dt$POS[1] + (outer.length - 1)) + (window.shift * nrow(x.out)),
+                       by = window.shift)
+  x.out$POS_to <- seq(from <- (dt$POS[1] + (outer.length + window.shift - 1)),
+                     to = (dt$POS[1] + (outer.length + window.shift - 1)) + (window.shift * (nrow(x.out)-1)),
+                     by = window.shift)
   
   
   print(paste0(chromo, " done!"))
 
   
   ### EXPORT  
-fwrite(x65.05, paste0("/well/lindgren/George/Data/NC_constraint/Constraint/", species, "_constraint_variables_by_window_chr", chromo, "_650_50.csv"))
+fwrite(x.out, out.file)
 
 
 #####

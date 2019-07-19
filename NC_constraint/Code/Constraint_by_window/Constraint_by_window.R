@@ -10,19 +10,21 @@ library(plyr)
 args = commandArgs(trailingOnly=TRUE)
 
 # test if there is at least one argument: if not, return an error
-# if (length(args)==0) {
-#   stop("At least one argument must be supplied", call.=FALSE)
-# } 
+if (length(args)==0) {
+  stop("At least one argument must be supplied", call.=FALSE)
+}
 
 # set args
-# contraint_variables_path <- args[1]
-# contraint_variables_window_size <- args[2]
-# output_file <- args[3]
-# species <- args[4]
-contraint_variables_path <- "~/Dropbox/PhD/Data/NC_constraint/Constraint/mouse_constraint_variables_by_window_chr"
-contraint_variables_window_size <- "_650_50.csv"
-output_file <- "~/Dropbox/PhD/Data/NC_constraint/Constraint/Constraint_by_window"
-species <- "mouse"
+contraint_variables_path <- args[1]
+contraint_variables_window_size <- args[2]
+output_file <- args[3]
+species <- args[4]
+window.size <- as.integer(args[5])
+# contraint_variables_path <- "~/Dropbox/PhD/Data/NC_constraint/Constraint/human_constraint_variables_by_window_chr"
+# contraint_variables_window_size <- "_650_50.csv"
+# output_file <- "~/Dropbox/PhD/Data/NC_constraint/Constraint/Constraint_by_window"
+# species <- "human"
+# window.size <- 650
 
 if (species == "mouse") { chr_vec <- c(1:19)}
 if (species == "human") { chr_vec <- c(1:22)}
@@ -46,28 +48,32 @@ len_dt_all <- nrow(dt)
 if (species == "human"){
 dt <- subset(
             dt, 
-            dt$n_mask <= (650*0.8)
+            dt$n_mask <= (window.size*0.1)
             &
-            dt$n_mask_central <= (50*0.2)
-             )
+            dt$n_RepMask <= (window.size*1)
+            # &
+            # dt$n_mask_central <= (window.size*0)
+            )
 }
 if (species == "mouse"){
 dt <- subset(
             dt, 
-            dt$n_mask <= (650*0.8)
+            dt$n_mask <= (window.size*0.5)
             &
-            dt$n_mask_central <= (50*0.2)
+            dt$n_RepMask <= (window.size*1)
+            # &
+            # dt$n_mask_central <= (window.size*0.2)
             )
 }
 
 ### CONSTRAINT
 
 # Calculate constraint with kmer
-mod_kmer <- lm(
-  dt$n_SNV_weighted ~ dt$p_SNV_given_kmers_weighted
-          )
-summary(mod_kmer)
-dt$Constraint_score_kmer <- studres(mod_kmer)
+# mod_kmer <- lm(
+#   dt$n_SNV_weighted ~ dt$p_SNV_given_kmers_weighted
+#           )
+# summary(mod_kmer)
+# dt$Constraint_score_kmer <- studres(mod_kmer)
 
 
 # Calculate constraint with CpG
@@ -79,12 +85,12 @@ dt$Constraint_score_CpG <- studres(mod_CpG)
 
 # percentile rank
 percentile_rank <- function(x) ceiling((rank(x)/length(x))*100) 
-dt$Constraint_percentile_kmer <- percentile_rank(dt$Constraint_score_kmer)
+# dt$Constraint_percentile_kmer <- percentile_rank(dt$Constraint_score_kmer)
 dt$Constraint_percentile_CpG <- percentile_rank(dt$Constraint_score_CpG)
 
 ### OUTPUT
 # dt <- dt[, c("CHR", "POS_from", "POS_to", "Constraint_score", "Constraint_percentile")]
-fwrite(dt, paste0(output_file, species, "_", contraint_variables_window_size))
+fwrite(dt, paste0(output_file, "_", species, contraint_variables_window_size))
 
 #####
 

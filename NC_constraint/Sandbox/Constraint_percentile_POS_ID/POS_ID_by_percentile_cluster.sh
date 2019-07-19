@@ -3,8 +3,8 @@
 #$ -cwd -V
 #$ -P lindgren.prjc -q short.qc
 #$ -pe shmem 16
-#$ -t 1-22 -tc 16
-#$ -N Constraint_by_window
+#$ -t 1-100 -tc 20
+#$ -N POS_ID_percentile
 #$ -o /well/lindgren/George/Workflows/NC_constraint/Log/
 #$ -e /well/lindgren/George/Workflows/NC_constraint/Log/
 
@@ -24,17 +24,13 @@ echo "##########################################################"
 module load R/3.4.3
 
 # human
-Rscript --vanilla /well/lindgren/George/Workflows/NC_constraint/Code/Constraint_by_window/Constraint_by_window.R \
-"/well/lindgren/George/Data/NC_constraint/Constraint/human_constraint_variables_by_window_chr" \
-"_650_50.csv" \
-"/well/lindgren/George/Data/NC_constraint/Constraint/Constraint_by_window" \
+Rscript --vanilla /well/lindgren/George/Workflows/NC_constraint/Code/Constraint_by_window/POS_ID_by_percentile.R \
+"$SGE_TASK_ID" \
 "human"
 
 # mouse
-Rscript --vanilla /well/lindgren/George/Workflows/NC_constraint/Code/Constraint_by_window/Constraint_by_window.R \
-"/well/lindgren/George/Data/NC_constraint/Constraint/mouse_constraint_variables_by_window_chr" \
-"_650_50.csv" \
-"/well/lindgren/George/Data/NC_constraint/Constraint/Constraint_by_window" \
+Rscript --vanilla /well/lindgren/George/Workflows/NC_constraint/Code/Constraint_by_window/POS_ID_by_percentile.R \
+"$SGE_TASK_ID" \
 "mouse"
 
 echo "###########################################################"

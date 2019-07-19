@@ -4,8 +4,8 @@
 #$ -P lindgren.prjb -q long.qb
 #$ -t 1-22 -tc 16
 #$ -N thouGP_VEP_run
-#$ -o /well/lindgren/George/Workflows/PC_constraint/Log/
-#$ -e /well/lindgren/George/Workflows/PC_constraint/Log/
+#$ -o /well/lindgren/George/Log/
+#$ -e /well/lindgren/George/Log/
 
 ### Script that runs Ensembl VEP v94 on formatted .vcf files
 
@@ -13,8 +13,8 @@
 module load ensembl-tools/94
 
 ### $PED_ROOT is the rootname of your files
-IN_ROOT=/well/lindgren/George/Data/1000GP/vcf_QCed_VEP/
-OUT_ROOT=/well/lindgren/George/Data/1000GP/vcf_QCed_VEP/
+IN_ROOT=/well/lindgren/George/Data/1KGP/Variants/vcf_QCed_VEP/
+OUT_ROOT=/well/lindgren/George/Data/1KGP/Variants/vcf_QCed_VEP/
   
   
   ### set your VEP variable

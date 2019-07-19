@@ -6,8 +6,10 @@
 #$ -o /well/lindgren/George/Workflows/NC_constraint/Log/
 #$ -e /well/lindgren/George/Workflows/NC_constraint/Log/
 
-### Script that QCs MGP vcf   -- subsets SNV sites with one or more high confidence homozygous genotype call 
-#                                 (denoted with an FI tag of 1)
+### Script that QCs MGP vcf  
+# -- subsets SNV sites with one or more high confidence homozygous genotype call 
+# (ie alternate genotype of 1/1 and FI tag of 1)
+# -- outputs two variant files: one for all strains, and one for all mus musculus strains (ie no SPRET_EiJ)
 
 # Set directory
 PED_ROOT=/well/lindgren/George/Data/MGP/vcf_raw/
@@ -24,14 +26,31 @@ mv "$PED_ROOT"tmp_"$SGE_TASK_ID" "$PED_ROOT"MGP_v5_snps_QCed_hom_chr"$SGE_TASK_I
 awk 'length($4)<=1' "$PED_ROOT"MGP_v5_snps_QCed_hom_chr"$SGE_TASK_ID".vcf > "$PED_ROOT"tmp_"$SGE_TASK_ID" 
 mv "$PED_ROOT"tmp_"$SGE_TASK_ID" "$PED_ROOT"MGP_v5_snps_QCed_hom_chr"$SGE_TASK_ID".vcf
 
-# subset SNV sites with one or more high confidence homozygous genotype call 
+# Subset all SNV sites with one or more high confidence homozygous genotype call 
+# (ie genotype of 1/1 and FI of 1 (https://regex101.com/r/I5oUAB/1/))
 grep -P -a "^.+?\s1\/1.+" "$PED_ROOT"MGP_v5_snps_QCed_hom_chr"$SGE_TASK_ID".vcf > "$PED_ROOT"tmp_"$SGE_TASK_ID" 
 mv "$PED_ROOT"tmp_"$SGE_TASK_ID" "$PED_ROOT"MGP_v5_snps_QCed_hom_chr"$SGE_TASK_ID".vcf
 
-# Subset vcf columns: CHROM POS ID REF ALT FILTER (ie remove INFO)
+# Subset all mus musculus strains (ie remove mus spretus (column 42))
+awk '{ $42=""; print }' "$PED_ROOT"MGP_v5_snps_QCed_hom_chr"$SGE_TASK_ID".vcf > "$PED_ROOT"tmp_"$SGE_TASK_ID" 
+# cut -f42 --complement "$PED_ROOT"MGP_v5_snps_QCed_hom_chr"$SGE_TASK_ID".vcf > "$PED_ROOT"tmp_"$SGE_TASK_ID" 
+mv "$PED_ROOT"tmp_"$SGE_TASK_ID" "$PED_ROOT"MGP_v5_allMUSMUS_snps_QCed_hom_chr"$SGE_TASK_ID".vcf
+
+# Subset all SNV sites with one or more high confidence homozygous genotype call 
+# (ie genotype of 1/1 and FI of 1 (https://regex101.com/r/I5oUAB/1/))
+grep -P -a "^.+?\s1\/1.+" "$PED_ROOT"MGP_v5_allMUSMUS_snps_QCed_hom_chr"$SGE_TASK_ID".vcf > "$PED_ROOT"tmp_"$SGE_TASK_ID" 
+mv "$PED_ROOT"tmp_"$SGE_TASK_ID" "$PED_ROOT"MGP_v5_allMUSMUS_snps_QCed_hom_chr"$SGE_TASK_ID".vcf
+
+# Subset vcf columns for output: CHROM POS ID REF ALT FILTER 
 awk '{print $1, $2, $3, $4, $5, $6, $7}' "$PED_ROOT"MGP_v5_snps_QCed_hom_chr"$SGE_TASK_ID".vcf > "$PED_ROOT"tmp_"$SGE_TASK_ID" 
-mv "$PED_ROOT"tmp_"$SGE_TASK_ID" "$PED_ROOT"MGP_v5_snps_QCed_hom_chr"$SGE_TASK_ID".vcf
-mv "$PED_ROOT"MGP_v5_snps_QCed_hom_chr"$SGE_TASK_ID".vcf "$OUT_ROOT"MGP_v5_snps_QCed_hom_chr"$SGE_TASK_ID".vcf
+mv "$PED_ROOT"tmp_"$SGE_TASK_ID" "$PED_ROOT"MGP_v5_allSTRAIN_snps_QCed_hom_chr"$SGE_TASK_ID".vcf
+mv "$PED_ROOT"MGP_v5_allSTRAIN_snps_QCed_hom_chr"$SGE_TASK_ID".vcf "$OUT_ROOT"MGP_v5_allSTRAIN_snps_QCed_hom_chr"$SGE_TASK_ID".vcf
+awk '{print $1, $2, $3, $4, $5, $6, $7}' "$PED_ROOT"MGP_v5_allMUSMUS_snps_QCed_hom_chr"$SGE_TASK_ID".vcf > "$PED_ROOT"tmp_"$SGE_TASK_ID" 
+mv "$PED_ROOT"tmp_"$SGE_TASK_ID" "$PED_ROOT"MGP_v5_allMUSMUS_snps_QCed_hom_chr"$SGE_TASK_ID".vcf
+mv "$PED_ROOT"MGP_v5_allMUSMUS_snps_QCed_hom_chr"$SGE_TASK_ID".vcf "$OUT_ROOT"MGP_v5_allMUSMUS_snps_QCed_hom_chr"$SGE_TASK_ID".vcf
+
+# Remove temp files 
+rm "$PED_ROOT"MGP_v5_snps_QCed_hom_chr"$SGE_TASK_ID".vcf
 
 #####
 

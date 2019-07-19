@@ -7,17 +7,8 @@ library(ggplot2)
 
 ### IMPORT
 
-h_dt <- list()
-for (i in 1:22){
-  h_dt[[i]] <- fread(paste0("~/Dropbox/PhD/Data/NC_constraint/Figures_and_tables/Raw/Figure_annotation_CpG_proportion_human_chr", i, ".csv"))
-}
-h_dt <- do.call("rbind", h_dt)
-
-m_dt <- list()
-for (i in 1:19){
-  m_dt[[i]] <- fread(paste0("~/Dropbox/PhD/Data/NC_constraint/Figures_and_tables/Raw/Figure_annotation_CpG_proportion_mouse_chr", i, ".csv"))
-}
-m_dt <- do.call("rbind", m_dt)
+h_dt <- fread("~/Dropbox/PhD/Data/NC_constraint/Figures_and_tables/Raw/Figure_annotation_CpG_proportion_human.csv")
+m_dt <- fread("~/Dropbox/PhD/Data/NC_constraint/Figures_and_tables/Raw/Figure_annotation_CpG_proportion_mouse.csv")
 
 ### Format
 
@@ -30,7 +21,8 @@ dt <- rbind(h_dt, m_dt)
 rm(h_dt, m_dt)
 
 # QC
-plot_dt <- subset(dt, dt$N_proportion == 0 & dt$length >= 4)
+plot_dt <- dt
+# plot_dt <- subset(dt, dt$N_proportion == 0 & dt$length >= 4)
 
 # calculate 1st 2nd and 3rd quartiles for each annotation
 tmp1 <- aggregate(plot_dt[, 3], list(plot_dt$Species, plot_dt$category), median)

@@ -2,7 +2,6 @@ rm(list = ls())
 graphics.off()
 
 library(data.table)
-library(stringr)
 
 #!/usr/bin/env Rscript
 args = commandArgs(trailingOnly=TRUE)
@@ -15,34 +14,35 @@ if (length(args)==0) {
 ### SET ARGS
 
 chromo <- args[1]
-ref.file <- args[2]
+vcf.file <- args[2]
 annotated.file <- args[3]
-unannotated.file <- args[4]
+ranked.file <- args[4]
 out.file <- args[5]
 # chromo <- 19
-# ref.file <- "~/Dropbox/PhD/Data/Ensembl/Reference/Formatted/Mouse_REF_sm_Ensembl_GRCm38_v94_chr19.txt"
+# vcf.file <- "~/Dropbox/PhD/Data/MGP/vcf_QCed_VEP/MGP_v5_snps_QCed_hom_chr19.vcf"
 # annotated.file <- "~/Dropbox/PhD/Data/Ensembl/Annotation/Mouse_GRCh38_GENCODE_RegBuild_annotation.csv"
-# unannotated.file <- "~/Dropbox/PhD/Data/Ensembl/Annotation/Mouse_GRCh38_GENCODE_RegBuild_unannotated.csv"
-# out.file <- "~/Dropbox/PhD/Data/NC_constraint/Figures_and_tables/Figure_annotation_CpG_proportion_mouse_chr19.csv"
+# ranked.file <- "~/Dropbox/PhD/Data/Ensembl/Annotation/Mouse_GRCh38_GENCODE_RegBuild_annotation_ranked.csv"
+# out.file <- "~/Dropbox/PhD/Data/NC_constraint/Figures_and_tables/Figure_annotation_SNV_proportion_mouse_chr19.csv"
 
 
 ### IMPORT
 
-# import REF 
-ref <- fread(ref.file)
+# import SNV file
+vcf <- fread(vcf.file)
 # import annotation
 ann <- fread(annotated.file)
-unann <- fread(unannotated.file)
+ranked.ann<- fread(ranked.file)
 
 
 ### FORMAT
 
-# identify REF start and end POS 
-start.POS <- which(ref$REF != "N")[1]
-end.POS <- which(ref$REF != "N")[length(which(ref$REF != "N"))]
-# rbind annotated and unannotated
-ann <- rbind(ann, unann)
-rm(unann)
+# subset ann != "Intron"
+ann <- subset(ann, ann$category != "Intron")
+# subset ranked Intron and Unannotated
+ranked.ann <- subset(ranked.ann, ranked.ann$category == "Intron" | ranked.ann$category == "Unannotated")
+# rbind files
+ann <- rbind(ann, ranked.ann)
+rm(ranked.ann)
 # subset chromo
 ann <- subset(ann, ann$chromosome == chromo)
 # ensure start <= end
@@ -51,46 +51,44 @@ tmp2 <- subset(ann, ann$start > ann$end)
 colnames(tmp2) <- c("category", "chromosome", "end", "start")
 ann <- rbind(tmp1, tmp2)
 rm(tmp1, tmp2)
-# remove start < start.POS | end > end.POS
-ann <- ann[which(ann$start >= start.POS & ann$end <= end.POS)]
-# ann <- subset(ann, ann$start >= start.POS & ann$end <= end.POS)
 
-### Get CpG proportion for each sequence
+### Get fraction of SNVs for each annotation
 
-## OLD and SLOW 
-# ann$CpG_proportion <- CpG_prop_vectorise(from = ann$start, to = ann$end)
-# ann$CpG_proportion <- NA
-# for(i in 1:nrow(ann)){
-#   string <- paste(
-#     ref$REF [ c( which(ref$POS == ann$start[i]) : which(ref$POS == ann$end[i]) ) ], 
-#     collapse = "")
-#   CpG_count <- str_count(string, "CG")
-#   total.dinuc <- nchar(string)/2
-#   ann$CpG_proportion[i] <- CpG_count/total.dinuc
+# COUNT <- rep(NA, nrow(ann)) 
+# for (i in 1:nrow(ann)){
+#   tmp_vec <- seq(from = ann$start[i], to = ann$end[i])
+#   COUNT[i] <- table(tmp_vec %in% vcf$V2)[2]
 #   print(i)
 # }
+# ann$n_SNV <- COUNT
 
-# collapse vector to string
-ref_string <- paste0(ref$REF, collapse="")
+ann[, ind := .I] # add uniqe index to data.table
+tmp_ann <- ann[,c("start", "end")]
+tmp_ann[, ind := .I] # add uniqe index to data.table
+tmp_dt <- as.data.table(vcf$V2) # convert to data.table
+tmp_dt[, V2 := V1] # dublicate column
+setkey(tmp_ann) # sets keys // order data by all columns
+# Fast overlap join:
+ans1 = foverlaps(tmp_dt, tmp_ann, by.x = c('V1', 'V2'), by.y = c('start', 'end'),
+                 type = "within", nomatch = 0L)
 
-# get sequence for each annotation
-ann$sequence <- sapply(1:nrow(ann), function(i) {
-    substr(ref_string, ann$start[i], ann$end[i])
-  })
-# get CpG proportion for each annotation
-ann$CpG_proportion <- sapply(1:nrow(ann), function(i) {
-  str_count(ann$sequence[i], "CG")/(nchar(ann$sequence[i])/2)
-})
-# get annotation length
-ann$length <- nchar(ann$sequence)
-# ann$length <- (ann$end - ann$start) +1
-# get proportion of "N"
-ann$N_proportion <- str_count(ann$sequence, "N")
+counts <- ans1[, .N, keyby = ind] # count by ind
+# merge to inital data
+ann[, n_SNV := counts[ann, on = .(ind), x.N]]
 
+setorder(ann, ind) # reorder by ind to get inital order
+ann[, ind := NULL] # deletes ind colum
+ann[is.na(n_SNV), n_SNV := 0L] # NAs is 0 count
+
+# get length of each annotation in kb
+ann$length_kb <- ((ann$end - ann$start) + 1 )/1000
+
+# get adjusted n_SNV
+ann$n_SNV_kb <- ann$n_SNV / ann$length_kb
 
 ### EXPORT
-out <- ann[,c("category", "chromosome", "CpG_proportion", "N_proportion", "length")]
-fwrite(out, out.file)
+out <- ann[,c("category", "chromosome", "n_SNV", "length_kb", "n_SNV_kb")]
+fwrite(out, out.file, append = T)
 
 
 #####
@@ -184,3 +182,42 @@ fwrite(out, out.file)
 # CpG2 <- sapply(1:nrow(df2), function(i) {
 #   str_count(sequences2[i], "CG")/(nchar(sequences2[i])/2)
 # })
+
+### STACK OVERFLOW
+
+# set.seed(1)
+
+# df1 <- data.table(
+#   START = seq(1, 10000000, 10),
+#   END = seq(10, 10000000, 10)
+#   )
+#                                           
+# vec1 <- sample(1:100000, 10000)
+
+# COUNT <- rep(NA, nrow(df1)) 
+# for (i in 1:nrow(df1)){
+#   vec2 <- seq(from = df1$START[i], to = df1$END[i])
+#   COUNT[i] <- table(vec2 %in% vec1)[2]
+#   print(i)
+# }
+# df1$COUNT <- COUNT
+
+# test1 <- df1[, count := sum(between(vec1, START, END)), by = seq_len(nrow(df1))]
+
+# df1[, ind := .I] # add uniqe index to data.table
+# dt2 <- as.data.table(vec1, key = 'vec1') # convert to data.table
+# dt2[, vec2 := vec1] # dublicate column
+# setkey(df1) # sets keys // order data by all columns
+# # Fast overlap join:
+# ans1 = foverlaps(dt2, df1, by.x = c('vec1', 'vec2'), by.y = c('START', 'END'),
+#                  type = "within", nomatch = 0L)
+# 
+# counts <- ans1[, .N, keyby = ind] # count by ind
+# # merge to inital data
+# df1[, COUNT := counts[df1, on = .(ind), x.N]]
+# 
+# setorder(df1, ind) # reorder by ind to get inital order
+# df1[, ind := NULL] # deletes ind colum
+# df1[is.na(COUNT), COUNT := 0L] # NAs is 0 count
+
+
