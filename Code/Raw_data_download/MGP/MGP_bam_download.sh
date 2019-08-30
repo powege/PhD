@@ -10,7 +10,7 @@ curl -l ftp://ftp-mouse.sanger.ac.uk/current_bams/ > "$PED_ROOT"FILES
 grep ".bam$" "$PED_ROOT"FILES > "$PED_ROOT"tmp && mv "$PED_ROOT"tmp "$PED_ROOT"FILES
 
 # delete SPRET
-sed -i '/SPRET_EiJ.bam/d' FILES
+sed -i '/SPRET_EiJ.bam/d' "$PED_ROOT"FILES
 
 # download .bam files from ftp
 for bam in `cat "$PED_ROOT"FILES`

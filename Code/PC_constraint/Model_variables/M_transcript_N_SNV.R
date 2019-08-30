@@ -15,9 +15,14 @@ library(data.table)
 library(plyr)
 
 ### SET PATHS
+
 M_consequence_file_path <- "~/Dropbox/PhD/Data/MGP/Variants/vcf_QCed_VEP/MGP_v5_allMUSMUS_snps_QCed_VEP_v94_canPC_chr"
 out_file_path <- "~/Dropbox/PhD/Data/PC_constraint/Model_variables/MGP_v5_allMUSMUS_QCed_canPC_N_SNVs.csv"
 summary_file_path <- "~/Dropbox/PhD/Data/PC_constraint/Model_variables/MGP_v5_allMUSMUS_QCed_N_SNV_summary.csv"
+
+# M_consequence_file_path <- "~/Dropbox/PhD/Data/MGP/Variants/vcf_QCed_VEP/MGP_v5_allSTRAIN_snps_QCed_VEP_v94_canPC_chr"
+# out_file_path <- "~/Dropbox/PhD/Data/PC_constraint/Model_variables/MGP_v5_allSTRAINS_QCed_canPC_N_SNVs.csv"
+# summary_file_path <- "~/Dropbox/PhD/Data/PC_constraint/Model_variables/MGP_v5_allSTRAINS_QCed_N_SNV_summary.csv"
 
 ### FUNCTIONS
 

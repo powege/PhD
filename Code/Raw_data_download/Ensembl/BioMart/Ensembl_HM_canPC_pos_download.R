@@ -52,6 +52,7 @@ h.orth <- getBM(attributes=c('chromosome_name',
                                h_canPC_orth),
                  mart = h_ensembl94)
 
+
 ## Mouse
 
 m_ensembl94 <- useMart(host='Oct2018.archive.ensembl.org', 

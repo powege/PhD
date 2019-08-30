@@ -80,6 +80,12 @@ p1 <- ggplot(plot_tmp, aes(x=Category, y=Q2)) +
 p1
 ggsave("~/Dropbox/Figure_synteny_by_annotation.jpg", plot = p1, height = 6, width = 6)
 
+
+
+
+
+
+
 ### CLinVar
 CV <- fread("~/Dropbox/PhD/Data/Interspecific_SNV_mapping/ClinVar_mouse_syntenic.csv")
 
