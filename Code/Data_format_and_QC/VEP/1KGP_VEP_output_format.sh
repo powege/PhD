@@ -20,6 +20,7 @@ PED_ROOT=/well/lindgren/George/Data/1KGP/Variants/vcf_QCed_VEP/
 ### set file name
 IN_FILE=1KGP_phase3_snps_QCed_VEPout_all_chr
 OUT_FILE=1KGP_phase3_snps_QCed_VEP_v94_chr
+CAN_PC_FILE=1KGP_phase3_snps_QCed_VEP_v94_canPC_chr
 
 # SGE_TASK_ID=dummy
 # head -10000 "$PED_ROOT"1KGP_phase3_snps_QCed_VEPout_all_chr1.vcf > "$PED_ROOT"1KGP_phase3_snps_QCed_VEPout_all_chr"$SGE_TASK_ID".vcf
@@ -49,7 +50,7 @@ OUT_FILE=1KGP_phase3_snps_QCed_VEP_v94_chr
 	# mv "$PED_ROOT"tmp_"$SGE_TASK_ID" "$PED_ROOT"1KGP_phase3_snps_QCed_VEP_v94_chr"$SGE_TASK_ID".txt
 
 	### Subset canonical protein-coding annotations
-	awk '$16 == "protein_coding" && $17 == "YES"' "$PED_ROOT"1KGP_phase3_snps_QCed_VEP_v94_chr"$SGE_TASK_ID".txt > "$PED_ROOT"1KGP_phase3_snps_QCed_VEP_v94_canPC_chr"$SGE_TASK_ID".vcf
+	awk '$16 == "protein_coding" && $17 == "YES"' "$PED_ROOT"1KGP_phase3_snps_QCed_VEP_v94_chr"$SGE_TASK_ID".txt > "$PED_ROOT""$CAN_PC_FILE""$SGE_TASK_ID".vcf
 	
 	### rename output
 	mv "$PED_ROOT"1KGP_phase3_snps_QCed_VEP_v94_chr"$SGE_TASK_ID".txt "$PED_ROOT""$OUT_FILE""$SGE_TASK_ID".vcf

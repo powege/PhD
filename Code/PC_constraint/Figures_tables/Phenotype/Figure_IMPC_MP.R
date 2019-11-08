@@ -194,10 +194,10 @@ fig <- ggplot(data = plot_df, aes(x=top_level_mp_term_name, y=dif)) +
   annotate("text", x = 20, y = 0.65, label = "****", colour="black", size = 6) +
   annotate("text", x = 18, y = 0.65, label = "****", colour="black", size = 6) +
   annotate("text", x = 16, y = 0.65, label = "****", colour="black", size = 6) +
-  annotate("text", x = 14, y = 0.65, label = "****", colour="black", size = 6) +
-  annotate("text", x = 13, y = 0.65, label = "***", colour="black", size = 6) +
-  annotate("text", x = 12, y = 0.65, label = "**", colour="black", size = 6) +
-  annotate("text", x = 11, y = 0.65, label = "****", colour="black", size = 6) +
+  annotate("text", x = 14, y = 0.65, label = "**", colour="black", size = 6) +
+  annotate("text", x = 13, y = 0.65, label = "****", colour="black", size = 6) +
+  annotate("text", x = 12, y = 0.65, label = "****", colour="black", size = 6) +
+  annotate("text", x = 11, y = 0.65, label = "**", colour="black", size = 6) +
   annotate("text", x = 1, y = 0.65, label = "****", colour="black", size = 6) +
   theme_bw() +
   theme(panel.grid.major = element_blank(),

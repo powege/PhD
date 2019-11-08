@@ -4,198 +4,142 @@ graphics.off()
 library(data.table)
 library(ggplot2)
 library(gridExtra)
+library(RColorBrewer)
+
+### IMPORT
+
+dt1 <- fread("~/Dropbox/PhD/Data/Interspecific_SNV_mapping/HM_annotation_alignment_by_sequence.csv")
+dt2 <- fread("~/Dropbox/PhD/Data/Ensembl/Alignment/Formatted/HM_annotation_alignment_totals.csv")
+summary <- fread("~/Dropbox/PhD/Data/Ensembl/Annotation/HM_annotation_coverage_summary.csv")
+
+### FORMAT
+
+# subset human annotations
+summary <- summary[species == "Human"]
+summary <- summary[,c("category", "genomic_percentage")]
+summary <- rbind(summary, 
+                 data.table(category = "Miscellaneous", 
+                            genomic_percentage = (summary$genomic_percentage[summary$category == "TF binding"] + 
+                                                  summary$genomic_percentage[summary$category == "Open chromatin"])))
+summary <- summary[category != "TF binding" & category != "Open chromatin"]
+summary$x_lab <- paste0(summary$category, "\n(", summary$genomic_percentage, "%)")
+
+# rename annotations
+dt1$category[dt1$category == "TF binding" | dt1$category == "Open chromatin"] <- "Miscellaneous"
+
+# set factor order
+order <- c("Exon - CDS",
+           "Exon - UTR",
+           "Exon - other",
+           "Promoter",
+           "Intron - proximal",
+           "Enhancer - proximal",
+           "Enhancer - distal",
+           "CTCF binding",
+           "Miscellaneous",
+           "Intron - distal",
+           "Unannotated")
+order <- rev(order)
+dt1$category <- factor(dt1$category, levels = as.character(order))
+dt2$H_annotation <- factor(dt2$H_annotation, levels = as.character(order))
+
+summary$category <- factor(summary$category, levels = as.character(order))
+summary <- summary[order(category)]
+lab_order <- summary$x_lab
+summary$x_lab <- factor(summary$x_lab, levels = as.character(lab_order))
+
+# format annotation conservation
+dt_ann_con <- dt2[dt2$H_annotation == dt2$M_annotation,]
+dt_ann_con$conserved_same_ann <- dt_ann_con$HM_ann_align_total / dt_ann_con$H_ann_total
+dt_ann_con <- dt_ann_con[,c("H_annotation", "conserved_same_ann", "H_ann_align_frac")]
+colnames(dt_ann_con) <- c("category", "total_aligned_same_ann", "total_aligned")
+dt_ann_con$total_aligned_diff_ann <- dt_ann_con$total_aligned - dt_ann_con$total_aligned_same_ann
+dt_ann_con <- melt(dt_ann_con, measure.vars = c("total_aligned_same_ann", "total_aligned_diff_ann"))
+tmp <- aggregate(dt1[, "align_frac"], list(dt1$category), median)
+colnames(tmp) <- c("category", "Q2")
+dt_ann_con <- dt_ann_con[tmp, on = "category"]
+dt_ann_con$variable <- factor(dt_ann_con$variable, levels = c("total_aligned_same_ann", "total_aligned_diff_ann"))
+dt_ann_con$col <- ifelse(dt_ann_con$variable == "total_aligned_diff_ann", "black", as.character(dt_ann_con$category))
+dt_ann_con$col <- factor(dt_ann_con$col, levels = c("black", as.character(order)))
+
+dt_ann_con <- summary[dt_ann_con, on = "category"]
+
+color_scale <- c("black",
+                 brewer.pal(length(unique(dt_ann_con$col)) - 1, name = "Set3")
+)
+color_map <- setNames(color_scale, levels(unique(dt_ann_con$col)))
 
 
+### PLOT A
 
-dt_plot2 <- fread("~/Dropbox/PhD/Data/Interspecific_SNV_mapping/HM_alignment_by_human_annotation.csv")
-dt_plot <- fread("~/Dropbox/PhD/Data/Interspecific_SNV_mapping/HM_alignment_annotation_summary.csv")
-
-# format total alignment
-tmp_tot <- dt_plot[,c("H_annotation", "H_ann_align_frac")]
-colnames(tmp_tot) <- c("category", "Total_aligned")
-tmp_tot <- tmp_tot[!duplicated(tmp_tot),]
-
-# set factor order by total alignment
-# order_H <- aggregate(dt_plot2$align_frac~dt_plot2$category, FUN=median)
-order_H <- aggregate(dt_plot$H_ann_align_frac~dt_plot$H_annotation, FUN=median)
-colnames(order_H) <- c("category", "median_align")
-order_H <- order_H[order(order_H$median_align),]
-order_H <- order_H$category
-order_M <- rev(order_H)
-dt_plot2$category <- factor(dt_plot2$category, levels = as.character(order_H))
-dt_plot$M_annotation <- factor(dt_plot$M_annotation, levels = as.character(order_M))
-dt_plot$H_annotation <- factor(dt_plot$H_annotation, levels = as.character(order_H))
-
-# calculate 1st 2nd and 3rd quartiles for each annotation
-tmp_2 <- aggregate(dt_plot2[, "align_frac"], list(dt_plot2$category), median)
-colnames(tmp_2) <- c("category", "Q2")
-tmp_1 <- aggregate(dt_plot2[, "align_frac"], list(dt_plot2$category), quantile, probs = 0.25)
-colnames(tmp_1) <- c("category", "Q1")
-tmp_3 <- aggregate(dt_plot2[, "align_frac"], list(dt_plot2$category), quantile, probs = 0.75)
-colnames(tmp_3) <- c("category", "Q3")
-plot_tmp <- merge(tmp_2, tmp_1)
-plot_tmp <- merge(plot_tmp, tmp_3)
-plot_tmp <- merge(plot_tmp, tmp_tot)
-
-# set rectangle coordinates 
-rects <- data.frame(xmin = head(seq <- seq(0.5, 10 + 0.5, 1), -1), 
-                    xmax = tail(seq, -1), 
-                    category = levels(plot_tmp$category),
-                    rect_type = c("a", "c"))
-rects <- rbind(rects)
-plot_tmp <- merge(plot_tmp, rects)
-
-p2 <- ggplot(plot_tmp, aes(x=category, y=Q2)) + 
-  geom_errorbar(aes(ymax = Q3, ymin = Q1), 
-                stat = "identity",
-                width=0.4,
-                size=1.2) + 
-  geom_point(size = 2.5) + 
-  geom_rect(
-    aes(xmin = plot_tmp$xmin,
-        xmax = plot_tmp$xmax,
-        ymin = -Inf,
-        ymax = Inf,
-        fill = plot_tmp$rect_type),
-    color = NA,
-    alpha = 0.5,
-    show.legend = F) +
-  geom_errorbar(aes(ymax = Q3, ymin = Q1), 
-                stat = "identity",
-                width=0.4,
-                size=1.2) + 
-  geom_point(size = 2.5) + 
-  geom_point(aes(x=category, y=Total_aligned), colour="red", shape=4, size=3, stroke=2) +
-  scale_fill_manual(values = c("grey", "white")) +
+pA <- ggplot(dt1, aes(x=category, y=align_frac, fill=category)) +
+  geom_violin() +
+  # geom_boxplot(width=0.1, outlier.shape = NA, coef = 0) +
+  geom_point(data = dt_ann_con, aes(x=category, y=Q2), colour="black", shape=4, size=3, stroke=2) +
+  coord_flip() +
   xlab("Human genomic annotation") +
   ylab("Mouse alignment (fraction)") +
   ggtitle("A") +
-  scale_y_continuous(breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1),
-                     limits = c(0, 1)) +
-  coord_flip() +
+  scale_fill_brewer(palette="Set3") +
+  # geom_hline(yintercept=GW_Halignment, linetype="dashed", color = "blue", size=1) +
   theme_bw() +
   theme(
     legend.position = "none",
-    # legend.title = element_blank(),
-    # legend.justification=c(1,0),
-    # legend.position=c(0.95, 0.05),
-    # legend.box.background = element_rect(colour = "black"),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     plot.title = element_text(size = 26, face = "bold"),
     plot.margin=unit(c(0.8,0.8,0.8,0.8),"cm"),
     text = element_text(size=14)
   )
-p2
-ggsave("~/Dropbox/PhD/Data/Figures/Figure_tmp2.jpg", plot = p2, height = 6, width = 6)
+pA
 
-# p2 <- ggplot(dt_plot2, aes(x=category, y=align_frac, fill=category)) + 
-#   geom_boxplot(outlier.colour = NA) +
-#   # geom_point(size = 2.5) + 
-#   # geom_point(aes(x=Category, y=Total_synteny), colour="red", shape=4, size=3, stroke=2) +
-#   xlab("Human genomic annotation") +
-#   ylab("Human-Mouse alignment (fraction)") +
-#   # ggtitle("") +
-#   scale_y_continuous(breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1),
-#                      limits = c(0, 1)) +
-#   scale_fill_brewer(palette="Set3", direction = -1) +
-#   coord_flip() +
-#   theme_bw() +
-#   theme(
-#     legend.position = "none",
-#     # legend.title = element_blank(),
-#     # legend.justification=c(1,0),
-#     # legend.position=c(0.95, 0.05),
-#     # legend.box.background = element_rect(colour = "black"),
-#     panel.grid.major = element_blank(),
-#     panel.grid.minor = element_blank(),
-#     text = element_text(size=14)
-#   )
-# p2
-# ggsave("~/Dropbox/PhD/Data/Figures/Figure_tmp2.jpg", plot = p2, height = 6, width = 6)
+### PLOT B
 
-p1 <- ggplot() +
-  geom_bar(data=dt_plot, aes(x=H_annotation, y=HM_ann_align_frac, fill=M_annotation), colour = "black", stat="identity") +
-  xlab("Human genomic annotation") +
-  ylab("Mouse alignment composition (fraction)") +
-  ggtitle("B") +
-  labs(fill = "Mouse genomic\nannotation") +
+pB <- ggplot(dt_ann_con, aes(x=category, y=value, fill=col)) +
+  geom_bar(stat="identity", colour = "black") +
   coord_flip() +
-  scale_y_continuous(breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8),
-                     limits = c(0, 1.8)) +
-  scale_fill_brewer(palette="Set3") +
-  # scale_fill_brewer(palette="Paired") +
+  xlab("Human genomic annotation") +
+  ylab("Mouse alignment (fraction)") +
+  ggtitle("B") +
+  scale_fill_manual(values = color_map) +
+  # geom_hline(yintercept=GW_Halignment, linetype="dashed", color = "blue", size=1) +
   theme_bw() +
   theme(
-    # legend.position = "none",
-    # legend.title = element_blank(),
-    legend.title = element_text(hjust = 0.5),
-    # legend.key.size = unit(2, 'lines'),
-    # legend.justification=c(1,0),
-    # legend.position=c(0.95, 0.05),
-    # legend.box.background = element_rect(colour = "black"),
+    legend.position = "none",
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     plot.title = element_text(size = 26, face = "bold"),
     plot.margin=unit(c(0.8,0.8,0.8,0.8),"cm"),
     text = element_text(size=14)
   )
-p1
-ggsave("~/Dropbox/PhD/Data/Figures/Figure_tmp.jpg", plot = p1, height = 6, width = 8)
-
-pout <- grid.arrange(p2, p1, nrow = 1, widths = c(6, 8))
-ggsave("~/Dropbox/PhD/Data/Figures/Figure_tmp3.jpg", plot = pout, height = 6, width = 14)
+pB
 
 
+### OUTPUT
 
+poutAB <- grid.arrange(pA, pB, nrow = 1, widths = c(6, 6))
+ggsave("~/Dropbox/PhD/Data/Figures/Figure_tmp_AB.jpg", plot = poutAB, height = 5, width = 12)
 
+#####
 
-####
+### PLOT C
 
-# ddply(dt_plot, "N_M_ann_align_frac", sum)
-# 
-# out_vec1 <- rep(NA, 10)
-# out_vec2 <- rep(NA, 10)
-# out_vec3 <- rep(NA, 10)
-# for (i in 1:length(unique(dt_plot$H_ann))){
-#   sub <- subset(dt_plot, dt_plot$H_ann == unique(dt_plot$H_ann)[i])
-#   out_vec1[i] <- sum(sub$N_M_ann_align_frac)
-#   out_vec2[i] <- sum(sub$N_M_ann_align)
-#   out_vec3[i] <- sub$N_H_ann_align[1]
-# }
-
-# ggplot(data=dt_plot, aes(x=H_ann, y=N_M_ann_align_frac, colour=M_ann)) +
-#   geom_point(shape=4, size=3, stroke=2) +
-#   xlab("Human genomic annotation") +
-#   ylab("Fraction of orthologous bases in mouse") +
-#   coord_flip() +
-#   scale_y_continuous(breaks = c(0.2, 0.4, 0.6, 0.8),
-#                      limits = c(0.1, 0.9)) 
-# tmp <- data.table(out_vec1, out_vec2, out_vec3)
-# tmp$frac <- tmp$out_vec2/tmp$out_vec3
-
-
-# ### CORRELATION PLOT
-# 
-# library(corrplot)
-# library(tidyr)
-# library(RColorBrewer)
-# 
-# cor_dt <- dt_plot[,c("H_annotation", "M_annotation", "HM_ann_align_frac")]
-# cor_dt <- spread(cor_dt, M_annotation, HM_ann_align_frac)
-# cor_dt <- cor_dt[order(-H_annotation),]
-# cor_dt$H_annotation <- NULL
-# cor_dt <- as.matrix(cor_dt)
-# rownames(cor_dt) <- colnames(cor_dt)
-# pdf(file = "~/Dropbox/PhD/Data/Figures/Figure_HM_alignment_matrix.pdf", width = 6, height = 6)
-# corrplot(cor_dt,
-#          method = "color",
-#          cl.lim = c(0, 1),
-#          col = brewer.pal(n = 10, name = "RdYlBu"),
-#          number.cex = 0.9,
-#          addCoef.col = "black",
-#          tl.col = "black")
-# dev.off()
-
-
-
+pC <- ggplot(dt_ann_con, aes(x=x_lab, y=value, fill=col)) +
+  geom_bar(stat="identity", colour = "black") +
+  coord_flip() +
+  xlab("Human genomic annotation") +
+  ylab("Mouse alignment (fraction)") +
+  # ggtitle("B") +
+  scale_fill_manual(values = color_map) +
+  # geom_hline(yintercept=GW_Halignment, linetype="dashed", color = "blue", size=1) +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    # plot.title = element_text(size = 26, face = "bold"),
+    plot.margin=unit(c(0.8,0.8,0.8,0.8),"cm"),
+    text = element_text(size=14)
+  )
+pC
+ggsave("~/Dropbox/PhD/Data/Figures/Figure_tmp_C.jpg", plot = pC, height = 5, width = 6)

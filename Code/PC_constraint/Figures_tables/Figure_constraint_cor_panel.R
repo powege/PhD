@@ -130,6 +130,9 @@ dt_plot1$HM_funZ_class <- as.factor(dt_plot1$HM_funZ_class)
 dt_plot1$HM_funZ_class <- factor(dt_plot1$HM_funZ_class, levels = c("NA", "10% most constrained in both species"))
 table(dt_plot1$HM_funZ_class)
 
+### COR TEST
+cor.test(dt_plot1$M_fun_Z, dt_plot1$H_fun_Z)
+
 ### PLOT 1 
 
 cor_text <- r_corr_eqn(dt_plot1$H_fun_Z, dt_plot1$M_fun_Z, digits = 2)

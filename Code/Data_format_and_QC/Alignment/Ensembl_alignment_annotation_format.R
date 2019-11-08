@@ -4,6 +4,7 @@ rm(list = ls())
 graphics.off()
 
 library(stringr)
+library(stringi)
 library(plyr)
 library(dplyr)
 library(utils)
@@ -130,6 +131,13 @@ long_to_short <- function(sub){
   )
 }
 
+# FUNCTION that sorts the characters in a string, or vercor of strings
+sort_cat3 <- function(strings){
+  apply(stri_extract_all_regex(strings, "\\p{L}", simplify = TRUE), 1, function(i){
+    stri_join(stri_sort(i), collapse = "")
+  })
+}
+
 # Function that converts .maf files to to tab delimited file with each base and genomic coordinates
 # output cols: (POS; REF; SPECIES)
 MAF_convert <- function(chr, files.chr, input.path, output.path, dir, in_prefix, out_long_prefix, out_short_prefix){
@@ -158,7 +166,7 @@ MAF_convert <- function(chr, files.chr, input.path, output.path, dir, in_prefix,
     spec1.ref <- unlist(lapply(spec1, turnip_REF))
     spec2.ref <- unlist(lapply(spec2, turnip_REF))
     
-    spec1.ref <- toupper(spec1.ref)
+    spec1.ref <- toupper(spec1.ref) # remove softmask
     spec2.ref <- toupper(spec2.ref)
     bases <- c("A", "T", "C", "G")
     spec1.ref[!spec1.ref %in% bases] <- NA
@@ -176,7 +184,7 @@ MAF_convert <- function(chr, files.chr, input.path, output.path, dir, in_prefix,
       CHR = as.character(h_ann$chromosome),
       INT_START = h_ann$start,
       INT_END = h_ann$end,
-      CAT = h_ann$category)
+      CAT = as.character(h_ann$category)) # category as.character
     # str(h_dt1)
     # str(h_dt2)
     # which(h_dt2$INT_START > h_dt2$INT_END)
@@ -197,6 +205,7 @@ MAF_convert <- function(chr, files.chr, input.path, output.path, dir, in_prefix,
       h_dt1 <- as.data.table(h_dt1)
       colnames(h_dt1) <- c("spec1.chr", "spec1.pos", "spec1.ann")
     }
+    # h_dt1$spec1.ann <- sort_cat3(h_dt1$spec1.ann) # sort strings
       # table(h_dt1$spec1.ann)
     
     m_dt1 <- data.table(
@@ -206,7 +215,7 @@ MAF_convert <- function(chr, files.chr, input.path, output.path, dir, in_prefix,
       CHR = as.character(m_ann$chromosome),
       INT_START = m_ann$start,
       INT_END = m_ann$end,
-      CAT = m_ann$category)
+      CAT = as.character(m_ann$category))
     # str(m_dt1)
     # str(m_dt2)
     # which(m_dt2$INT_START > m_dt2$INT_END)
@@ -227,6 +236,7 @@ MAF_convert <- function(chr, files.chr, input.path, output.path, dir, in_prefix,
       m_dt1 <- as.data.table(m_dt1)
       colnames(m_dt1) <- c("spec2.chr", "spec2.pos", "spec2.ann")
     }
+    # m_dt1$spec2.ann <- sort_cat(m_dt1$spec2.ann) # sort strings
     # table(m_dt1$spec2.ann)
     
     # m_dt1 may be smaller then h_dt1 if h_POS align to multiple m_POS
@@ -237,7 +247,6 @@ MAF_convert <- function(chr, files.chr, input.path, output.path, dir, in_prefix,
     
     dt_long <- dt_long[,c("spec1.chr", "spec1.pos", "spec1.ref", "spec1.ann",
                         "spec2.chr", "spec2.pos", "spec2.ref", "spec2.ann")]
-    
     
     # convert long to short format
     INT_A_split <- cumsum(c(TRUE, abs(diff(dt_long$spec1.pos))!=1))
@@ -277,29 +286,41 @@ m_ann <- fread(m_ann_file)
 
 ### FORMAT
 
+# colnames 
+colnames(h_ann) <- c("category", "chromosome", "start", "end")
+colnames(m_ann) <- c("category", "chromosome", "start", "end")
+
+# categories
+h_ann$category <- as.character(h_ann$category)
+m_ann$category <- as.character(m_ann$category)
+h_ann$category[h_ann$category == "TF binding" | h_ann$category == "Open chromatin"] <- "Miscellaneous"
+m_ann$category[m_ann$category == "TF binding" | m_ann$category == "Open chromatin"] <- "Miscellaneous"
+
 # number code annotations (plyr)
 h_ann$category <- mapvalues(h_ann$category, from=c("Exon - CDS",
-                                 "Exon - UTR",
-                                 "Exon - non-coding",
-                                 "Promoter",
-                                 "Enhancer",
-                                 "Open chromatin",
-                                 "TF binding",
-                                 "Promoter flanking",
-                                 "Intron",
-                                 "Unannotated"), 
-                   to=c("A","B","C","D","E","F","G","H","I","J"))
+                                                   "Exon - UTR",
+                                                   "Exon - other",
+                                                   "Promoter",
+                                                   "Enhancer - proximal",
+                                                   "Enhancer - distal",
+                                                   "CTCF binding",
+                                                   "Miscellaneous",
+                                                   "Intron - proximal",
+                                                   "Intron - distal",
+                                                   "Unannotated"), 
+                   to=c("A","B","C","D","E","F","G","H","I","J","K"))
 m_ann$category <- mapvalues(m_ann$category, from=c("Exon - CDS",
                                                    "Exon - UTR",
-                                                   "Exon - non-coding",
+                                                   "Exon - other",
                                                    "Promoter",
-                                                   "Enhancer",
-                                                   "Open chromatin",
-                                                   "TF binding",
-                                                   "Promoter flanking",
-                                                   "Intron",
+                                                   "Enhancer - proximal",
+                                                   "Enhancer - distal",
+                                                   "CTCF binding",
+                                                   "Miscellaneous",
+                                                   "Intron - proximal",
+                                                   "Intron - distal",
                                                    "Unannotated"), 
-                            to=c("A","B","C","D","E","F","G","H","I","J"))
+                            to=c("A","B","C","D","E","F","G","H","I","J","K"))
 
 # ensure start <= end 
 tmp1 <- subset(h_ann, h_ann$end < h_ann$start)

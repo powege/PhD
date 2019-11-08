@@ -48,6 +48,8 @@ orth_out <- orth_out[!duplicated(orth_out),]
 ### sumarise orthologue types
 
 table(orth_out$orthology_type)
+length(unique(orth_out$H_ensembl_gene_id))
+length(unique(orth_out$M_ensembl_gene_id))
 # o2o
 length(unique(orth_out$H_ensembl_gene_id[which(orth_out$orthology_type == "ortholog_one2one")]))
 length(unique(orth_out$M_ensembl_gene_id[which(orth_out$orthology_type == "ortholog_one2one")]))

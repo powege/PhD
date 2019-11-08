@@ -117,7 +117,7 @@ M_spearman <- spear_corr_eqn(M_df_mn$x, M_df_mn$Category, digits = 3)
 M_plot <- ggplot() +
   geom_bar(data=M_df_md, aes(y=x,x=Category), color = "red", fill="red", stat="identity", width = 0.75) + 
   geom_point(data=M_df_mn, aes(y=x, x=Category), alpha = 1/5) +
-  geom_smooth(data=M_df_mn, aes(y=x, x=Category), color = "blue", method='lm') +
+  geom_smooth(data=M_df_mn, aes(y=x, x=Category), color = "black", method='lm', size = 0.6, fullrange = T, linetype = "longdash", se = F) +
   # scale_color_gradient(low="blue", high="red") +
   annotate("text", x = 20, y = 3.5, label = M_spearman, colour="black", size = 5, parse=TRUE) +
   xlab("Mouse funZ percentile bin") +
@@ -134,7 +134,7 @@ M_plot
 H_plot <- ggplot() +
   geom_bar(data=H_df_md, aes(y=x,x=Category), color = "red", fill="red", stat="identity", width = 0.75) + 
   geom_point(data=H_df_mn, aes(y=x, x=Category), alpha = 1/5) +
-  geom_smooth(data=H_df_mn, aes(y=x, x=Category), color = "blue", method='lm') +
+  geom_smooth(data=H_df_mn, aes(y=x, x=Category), color = "black", method='lm', size = 0.6, fullrange = T, linetype = "longdash", se = F) +
   # scale_color_gradient(low="blue", high="red") +
   annotate("text", x = 20, y = 3.5, label = H_spearman, colour="black", size = 5, parse=TRUE) +
   xlab("Human funZ percentile bin") +
